@@ -1,0 +1,12 @@
+# R junk
+.Rhistory
+.RData
+.RDataTmp
+.Rprofile
+.Rproj.user/
+
+# Do NOT push raw data
+data/
+
+# renv large library
+renv/library/
