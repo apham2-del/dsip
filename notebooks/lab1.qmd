@@ -46,9 +46,9 @@ The data used in this lab comes from the 2004 "Macroscope in the Redwoods" study
 Small sensor nodes called "motes," recorded environmental measurements are regular interval with a variable "epoch," that represents time indexed measurement periods. Environmental variables included humidity, adjusted humidity, and humidity measurements from sensors place at the top and bottom of the tree. Additional variables include battery voltage to assess equipment functionality and data quality. Each sensor node is uniqely identified by a variable called, "nodeid."
 
 
-The respective motes recorded environmental variables such as humidity and temperature associated with the humidity sensor and temperature adjusted humidity. Other variables include result time and nodeid. Measurements were recorded at regular time intervals and indexed using an epoch variable which serves as a placeholder for time and allows for observations across the sensors. Each sensor node is identified by a unique node id, "nodeid," and was deployed at a fixed depth. Measurements from vertically separated sensors include "hama_top" and "hama_bot" to capture microclimate variation. Additional variables such as battery voltage and network routing were used to assess data quality and sensor reliability. 
+The respective motes recorded environmental variables such as humidity associated with the humidity sensor and adjusted humidity. Other variables include result time and nodeid. Measurements were recorded at regular time intervals and indexed using an epoch variable which serves as a placeholder for time and allows for observations across the sensors. Each sensor node is identified by a unique node id, "nodeid," and was deployed at a fixed depth. Measurements from sensors also included "hamatop" and "hamabot" to capture microclimate variation across the top and bottom of trees. Additional variables include battery voltage to assess data quality and sensor reliability. 
 
-Despite its strengths, it's important to note the dataset's limitations. The large sensor data are raw and contains numerous missing values, outliers, and measurement inconsistencies, requiring careful cleaning and analysis. There are more than likely to be sensor voltage fluctuations and noisy readings that reflect hardware issues rather than true environmental influence. Additionally, tree height are constantly changing with the seasons, even when it is not visible from the outside. Overall, the observational nature of data means that causal relationships between microclimate and tree height cannot be definitively established. Unmeasured factors like soil conditions may also influence observed patterns.
+Despite its strengths, it's important to note the dataset's limitations. The large sensor data are raw and contains numerous missing values, outliers, and measurement inconsistencies, requiring careful cleaning and analysis. They most likely reflect sensor voltage fluctuations and noisy readings from hardware issues or device incompatability rather than true environmental factors. Because the study is observation, it's important to take note that results can show a relationship between the variables but correlation does not equal causation. Unmeasured factors like soil conditions can also influence observed patterns.
 
 
 ```{r load-data}
@@ -66,14 +66,16 @@ redwood_log_orig <- load_redwood_data(DATA_PATH, source = "log")
 
 # Data Cleaning
 
-When observing the raw sensor data sets, it was evident that the data sets contained missing values, repeated measurements, and implausible observations that required cleaning prior to analysis. Several data cleaning steps were performed to ensure that the data reflected meaningful environmental conditions.To start the process, the Sonoma redwood forest datasets including "all," "log," and "net," were combined into one dataset. Mote location data were then joined to the environment data using a shared node identifier called "nodeid," to classify each sensor as interior or edge tree position. This step was necessary for directly comparing environmental conditions between forest positions.
+When observing the raw sensor data sets, it was evident that the data sets contained missing values, repeated measurements, and implausible observations that required cleaning prior to analysis. Several data cleaning steps were performed to ensure that the data reflected meaningful environmental conditions.
 
-Throughout the cleaning process, it was observed that sensor nodes repeatedly recorded measurements per node and time period. Therefore, observations were aggregated to one value per node, epoch, and tree position by calculating the mean of the numeric variables. The mean was calculated because the mean preserved the average signal over time. Sensors inevitably record small fluctuations. The mean will help smooth short-term nose and retain gradual trends. It was determined that it was appropiate for humidity due to it being a continuous variable. 
+To start this meaningful process, the Sonoma redwood forest datasets including "all," "log," and "net," were combined into one dataset. Mote location data were then joined to the environment data using a shared node identifier called "nodeid," to classify each sensor as interior or edge tree position. This step was necessary for directly comparing environmental conditions between forest positions.
+
+Throughout the cleaning process, it was discovered that sensor nodes repeatedly recorded measurements per node and time period. Therefore, observations were aggregated to one value per node, epoch, and tree position by calculating the mean of the numeric variables. The mean was calculated because the mean preserved the average signal over time. Sensors inevitably record small fluctuations. The mean will help smooth short-term nose and retain gradual trends. It was determined that it was appropriate for humidity due to it being a continuous variable. 
 
 Missing values were handled by excluding "NA" values during aggregation. This allows available measurements to contribute to summary statistics.
 
 It is also important to note that humidity cannot be less than zero, although it can get close to zero percent. This is due to Earth's present climate. Water vapor is present in the air. This makes it so humidity values outside the plausible range of 0-100% removed prior to analysis. Most likely, these values reflect sensor error rather than real environmental conditions. If they were included, it would distort visualizations and summary statistics. 
-Battery voltage values were retained, including extreme values, as these measurements provide insight into sensor performance and data availabilitY rather than environmental conditions. 
+Battery voltage values were retained, including extreme values, as these measurements provide insight into sensor performance and data availability rather than environmental conditions. 
 
 These data steps produced a consistent and reproducible dataset suitable for exploratory analysis of microclimatic patterns and sensor reliability.
 
@@ -172,15 +174,18 @@ A box plot representation of distribution of humidity values by tree position. I
 
 Overall, the analysis investigated how microclimatic conditions differ between edge and interior redwood trees using sensor data collected from WSNs. The results from EDA process showed that interior tree locations consistently experience higher and more stable humidity levels compared to edge trees.
 
-Important takeaways were of battery voltage highlighting differences in sensor performace over time. It showed especially shorter data coverage for edge sensors. This is underlines the importance of understanding that hardware limitations can shape the patterns observed in WSNs. 
+Important takeaways were of battery voltage highlighting differences in sensor performance over time. It showed especially shorter data coverage for edge sensors. This is underlines the importance of understanding that hardware limitations can shape the patterns observed in WSNs. 
 
-For future work, temperature, soil conditions, or seasonal data, could be incorporated to quantify differences. More sophisticated methods could also be used to impute missing values. Using more advanced methods would further improve understanding the influence of microclimatic conditions influence redwood forest structure and growth.
+For future work implications, temperature, soil conditions, or seasonal data, could be incorporated to quantify differences. More sophisticated methods could also be used to impute missing values. Using more advanced methods would further improve understanding the influence of microclimatic conditions influence redwood forest structure and growth.
 
 # References
 
 “Aggregate: Compute Summary Statistics of Data Subsets.” RDocumentation, www.rdocumentation.org/packages/stats/versions/3.6.2/topics/aggregate. Accessed 6 Feb. 2026.
 
 Alex Douglas, Deon Roos. “4.2 Simple Base R Plots | An Introduction to R.” 4.2 Simple Base R Plots, 15 Jan. 2026, intro2r.com/simple-base-r-plots.html.
+
+G. Tolle, J. Polastre, R. Szewczyk, D. Culler, N. Turner, K. Tu, S. Burgess, T. Dawson, P. Buonadonna, D. Gay, et al. A macroscope in the redwoods. In Proceedings of the 3rd
+international conference on Embedded networked sensor systems, pages 51–63, 2005.
 
 Holtz, Yan. “An Overview of Color Names in R.” Www.r-Graph-Gallery.com, 2018, r-graph-gallery.com/42-colors-names.html.
 
