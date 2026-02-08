@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.25">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Anna Pham">
+
+<title>Lab 1 - Redwood Trees</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="lab1_R_files/libs/clipboard/clipboard.min.js"></script>
+<script src="lab1_R_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="lab1_R_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="lab1_R_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="lab1_R_files/libs/quarto-html/popper.min.js"></script>
+<script src="lab1_R_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="lab1_R_files/libs/quarto-html/anchor.min.js"></script>
+<link href="lab1_R_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="lab1_R_files/libs/quarto-html/quarto-syntax-highlighting-7b89279ff1a6dce999919e0e67d4d9ec.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="lab1_R_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="lab1_R_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="lab1_R_files/libs/bootstrap/bootstrap-889347afa0e18f2ab2e857d77b27f773.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction">Introduction</a></li>
+  <li><a href="#data-overview-and-collection" id="toc-data-overview-and-collection" class="nav-link" data-scroll-target="#data-overview-and-collection">Data Overview and Collection</a></li>
+  <li><a href="#data-cleaning" id="toc-data-cleaning" class="nav-link" data-scroll-target="#data-cleaning">Data Cleaning</a></li>
+  <li><a href="#exploratory-data-analysis" id="toc-exploratory-data-analysis" class="nav-link" data-scroll-target="#exploratory-data-analysis">Exploratory Data Analysis</a></li>
+  <li><a href="#caption" id="toc-caption" class="nav-link" data-scroll-target="#caption">Caption</a></li>
+  <li><a href="#caption-1" id="toc-caption-1" class="nav-link" data-scroll-target="#caption-1">Caption</a></li>
+  <li><a href="#caption-2" id="toc-caption-2" class="nav-link" data-scroll-target="#caption-2">Caption</a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">Lab 1 - Redwood Trees</h1><button type="button" class="btn code-tools-button dropdown-toggle" id="quarto-code-tools-menu" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi"></i> Code</button><ul class="dropdown-menu dropdown-menu-end" aria-labelelledby="quarto-code-tools-menu"><li><a id="quarto-show-all-code" class="dropdown-item" href="javascript:void(0)" role="button">Show All Code</a></li><li><a id="quarto-hide-all-code" class="dropdown-item" href="javascript:void(0)" role="button">Hide All Code</a></li><li><hr class="dropdown-divider"></li><li><a id="quarto-view-source" class="dropdown-item" href="javascript:void(0)" role="button">View Source</a></li></ul></div></div>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Anna Pham </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="introduction" class="level1">
+<h1>Introduction</h1>
+<p>Understanding how forest structure and specific climate conditions influence tree growth is a key question in forest ecology. In redwood forests, trees near the edge of the forest may experience different environmental conditions. These can include greater sunlight exposure or humidity levels, compared to trees in the interior. These differences in the position can contribute to overall variation within the position of the trees that are currently being studied in modern day with wireless sensor networks (WSN) that collect environmental data over time.</p>
+<p>Advances in WSN have made it possible for monitoring environmental conditions. By deploying sensor nodes, researchers can capture how microclimatic conditions vary across locations over time. However, studying these patterns can be challenging due to sensor data being incomplete, noisy, and restricting. Sensor data can lack context regarding external factors and user-interaction, making it difficult to explore patterns further.</p>
+<p>A study concluded by Gilman Tolle (Tolle et. al) have conducted extensive sensor measurements in redwood forests, providing environmental data such as humidity. Humidity is a key variable influencing physiological stress in redwood trees. Differences in humidity between forest edge and interior locations can affect growth. Battery voltage is also another variable measured across sensor nodes. Although it is not an environmental variable, it remains critical as it provides information about sensor reliability to help distinguish meaningful environmental patterns caused by sensor failure.</p>
+<p>This research provides a valuable framework to examine how environental conditions differ across forest positions while also evaluating how reliable sensor measurements are in the process. This lab investigates the research question, “To what extent do environmental sensor measurements such as humidity, differ between edge and interior tree positions over time, and how might sensor performance influence these observed patterns?</p>
+<p>To address this question, tree-level measurements from mote-location-data.txt and environmental sensor data from Sonoma datasets including all, log, and net, were used in connection with the framework described in Tolle et al.&nbsp;(2005). Sensor measurements between edge and interior locations while observing their dynamics will be compared. By combining these datasets, we aim to characterize both microclimatic variation and the role of sensor performance in shaping observed environmental patterns.</p>
+</section>
+<section id="data-overview-and-collection" class="level1">
+<h1>Data Overview and Collection</h1>
+<p>The data used in this study comes from the Sonoma redwood forest deployed network of 2004 in the research presented by Gilman Tolle, A Macroscope in the Redwoods (Tolle et. al 2005). In the study, a wireless sensor network (WSN) was installed on redwood trees to collect environmental conditions over time. Wireless sensor networks have allowed for monitoring variations in environmental measurements across different forests.</p>
+<p>Small sensor nodes called “motes,” recorded environmental measurements are regular interval with a variable “epoch,” that representes time indexed measurement periods. Environmental variables included humidity, adjusted humidity, and humidity measurements from sensors place at the top and bottom of the tree. Additional variables include battery voltage to assess equipment functionality and data quality. Each sensor node is uniqely identified by a variable called, “nodeid.”</p>
+<p>The respective motes recorded environmental variables such as humidity and temperature associated with the humidity sensor and temperature adjusted humidity. Other variables include result time and nodeid. Measurements were recorded at regular time intervals and indexed using an epoch variable which serves as a placeholder for time and allows for observations across the sensors. Each sensor node is identified by a unique node id, “nodeid,” and was deployed at a fixed depth. Measurements from vertically separated sensors include hama_top and hama_bot to capture microclimate variation. Additional variables such as battery voltage and network routing were used to assess data quality and sensor reliability. Despite its strengths, it’s important to note the dataset’s limitations. The large sensor data are raw and contains numerous missing values, outliers, and measurement inconsistencies, requiring careful cleaning and analysis. There are more than likely to be sensor voltage fluctuations and noisy readings that reflect hardware issues rather than true environmental influence. Additionally, tree height are constantly changing with the seasons, even when it is not visible from the outside. Overall, the observational nature of data means that causal relationships between microclimate and tree height cannot be definitively established. Unmeasured factors like soil conditions may also influence observed patterns.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Show Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># load dates data</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>dates_orig <span class="ot">&lt;-</span> <span class="fu">load_dates_data</span>(DATA_PATH)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"># load motes data</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>motes_orig <span class="ot">&lt;-</span> <span class="fu">load_mote_location_data</span>(DATA_PATH)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co"># load redwood data</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>redwood_all_orig <span class="ot">&lt;-</span> <span class="fu">load_redwood_data</span>(DATA_PATH, <span class="at">source =</span> <span class="st">"all"</span>)</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>redwood_net_orig <span class="ot">&lt;-</span> <span class="fu">load_redwood_data</span>(DATA_PATH, <span class="at">source =</span> <span class="st">"net"</span>)</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>redwood_log_orig <span class="ot">&lt;-</span> <span class="fu">load_redwood_data</span>(DATA_PATH, <span class="at">source =</span> <span class="st">"log"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+</section>
+<section id="data-cleaning" class="level1">
+<h1>Data Cleaning</h1>
+<p>When observing the raw sensor data sets, it was evident that the data sets contained missing values, repeated measurements, and implausible observations that required cleaning prior to analysis. Several data cleaning steps were performed to ensure that the data reflected meaningful environmental conditions.To start the process, the Sonoma redwood forest datasets including “all,” “log,” and “net,” were combined into one dataset. Mote location data were then joined to the environment data using a shared node identifier called “nodeid,” to classify each sensor as interior or edge tree position. This step was necessary for directly comparing environmental conditions between forest positions.</p>
+<p>Throughout the cleaning process, it was observed that sensor nodes repeatedly recorded measurements per node and time period. Therefore, observations were aggregated to one value per node, epoch, and tree position by calculating the mean of the numeric variables. The mean was calculated because the mean preserved the average signal over time. Sensors inevitably record small fluctuations. The mean will help smooth short-term nose and retain gradual trends. It was determined that it was appropiate for humidity due to it being a continuous variable.</p>
+<p>Missing values were handled by excluding “NA” values during aggregation. This allows available measurements to contribute to summary statistics.</p>
+<p>It is also important to note that humidity cannot be less than zero, although it can get close to zero percent. This is due to Earth’s present climate. Water vapor is present in the air. This makes it so humidity values outside the plausible range of 0-100% removed prior to analysis. Most likely, these values reflect sensor error rather than real environmental conditions. If they were included, it would distort visualizations and summary statistics. Battery voltage values were retained, including extreme values, as these measurements provide insight into sensor performance and data availabilitY rather than environmental conditions.</p>
+<p>These data steps produced a consistent and reproducible dataset suitable for exploratory analysis of microclimatic patterns and sensor reliability.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Show Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># load dates data</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"ggplot2"</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>dates_df <span class="ot">&lt;-</span> <span class="fu">clean_dates_data</span>(dates_orig)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co"># load motes data</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>motes_df <span class="ot">&lt;-</span> <span class="fu">clean_mote_location_data</span>(motes_orig)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co"># load redwood data</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>redwood_all_df <span class="ot">&lt;-</span> <span class="fu">clean_redwood_data</span>(redwood_all_orig)</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>redwood_net_df <span class="ot">&lt;-</span> <span class="fu">clean_redwood_data</span>(redwood_net_orig)</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>redwood_log_df <span class="ot">&lt;-</span> <span class="fu">clean_redwood_data</span>(redwood_log_orig)</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="co"># R data cleaning process</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>sonoma_all <span class="ot">&lt;-</span> redwood_all_df</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>sonoma_log <span class="ot">&lt;-</span> redwood_log_df</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>sonoma_net <span class="ot">&lt;-</span> redwood_net_df</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>sonoma_combined <span class="ot">&lt;-</span> <span class="fu">rbind</span>(sonoma_all, sonoma_log, sonoma_net)</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>mote <span class="ot">&lt;-</span> motes_df</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(mote)[<span class="fu">names</span>(mote) <span class="sc">==</span> <span class="st">"ID"</span>] <span class="ot">&lt;-</span> <span class="st">"nodeid"</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>mote<span class="sc">$</span>position <span class="ot">&lt;-</span> <span class="fu">factor</span>(<span class="fu">tolower</span>(<span class="fu">as.character</span>(mote<span class="sc">$</span>Tree)), <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">"interior"</span>, <span class="st">"edge"</span>))</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>sonomojoin <span class="ot">&lt;-</span> <span class="fu">merge</span>(sonoma_combined, mote[, <span class="fu">c</span>(<span class="st">"nodeid"</span>, <span class="st">"position"</span>)], <span class="at">by =</span> <span class="st">"nodeid"</span>)</span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>no_impute <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"humidity"</span>, <span class="st">"humid_temp"</span>, <span class="st">"humid_adj"</span>, <span class="st">"hamatop"</span>, <span class="st">"hamabot"</span>)</span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (col <span class="cf">in</span> <span class="fu">names</span>(sonomojoin)) {</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">is.numeric</span>(sonomojoin[[col]]) <span class="sc">&amp;&amp;</span> <span class="sc">!</span>(col <span class="sc">%in%</span> no_impute)) {sonomojoin[[col]][<span class="fu">is.na</span>(sonomojoin[[col]])] <span class="ot">&lt;-</span> <span class="fu">median</span>(sonomojoin[[col]], <span class="at">na.rm =</span> <span class="cn">TRUE</span>)}</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>sonomojoin_clean <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(.<span class="sc">~</span> nodeid <span class="sc">+</span> epoch <span class="sc">+</span> position, <span class="at">data =</span> sonomojoin, <span class="at">FUN =</span> <span class="cf">function</span>(x) <span class="cf">if</span> (<span class="fu">is.numeric</span>(x))<span class="fu">mean</span>(x, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)<span class="cf">else</span> x[<span class="dv">1</span>])</span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>sonomojoin_clean <span class="ot">&lt;-</span> sonomojoin_clean[sonomojoin_clean<span class="sc">$</span>humidity <span class="sc">&gt;=</span> <span class="dv">0</span> <span class="sc">&amp;</span> sonomojoin_clean<span class="sc">$</span>humidity <span class="sc">&lt;=</span> <span class="dv">100</span>,]</span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>agg_humidity <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(humidity <span class="sc">~</span> position <span class="sc">+</span> epoch, <span class="at">data =</span> sonomojoin_clean, <span class="at">FUN =</span> <span class="cf">function</span>(x) <span class="fu">mean</span>(x, <span class="at">na.rm =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>agg_voltage <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(voltage <span class="sc">~</span> position <span class="sc">+</span> epoch, <span class="at">data=</span>sonomojoin_clean, <span class="at">FUN =</span> <span class="cf">function</span>(x) <span class="fu">mean</span>(x, <span class="at">na.rm=</span><span class="cn">TRUE</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+</section>
+<section id="exploratory-data-analysis" class="level1">
+<h1>Exploratory Data Analysis</h1>
+<p>To explore differences in microclimate between forest edge and interior positions, exploratory data analysis (EDA) was conducted to investigate differences between edge and interior redwood tree positions and to assess the influence of sensor performance on observed patterns.</p>
+<p>Average humidity was first examined over time and across tree positions using a time series plot where humidity values were aggregated by tree position and epoch using the mean. This visualization revealed that interior trees consistently experienced high humidity levels across most epochs. Edge trees exhibited lower humidity and greater short-term variability as seen by it’s cut off in the visual. These patterns suggest that interior forest environments retain moisture effectively, most likely due to reduced exposure to wind and direct sunlight. Edge trees are subject to more fluctuating atmospheric conditions.</p>
+<p>Additionally, battery voltage was examined to evaluate sensor reliability and data availability. Voltage values were aggregated by tree position and epoch. This was visualized using a time series plot. An important note that each type of battery systems have different ranges, with cars being 12-13V. Wireless sensor networks are typically operating around 2-3V. This visualization was scaled to a typical operating range of 0-5V to avoid distortion from extreme values association with fluctations. Within this range, voltage remained stable around 2-3V meaning normal activities. However, edge sensors produced a shorter coverage compared to intersior sensors as seen by the cut off. There are many possible causes of this. Power loss, network traffic, etc. This highlights an important limitation of the datset. Differences in sensor performance and data coverage may influence interpretation of trends.</p>
+<p>Overall, these exploratory analyses demonstrate that interior redwood trees experience more humid and stable microclimatic conditions than edge trees. It also suggests that accounting for sensor reliability is crucial when researching forest conditions from wireless sensor networks.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Show Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(agg_humidity, <span class="fu">aes</span>(<span class="at">x =</span> epoch, <span class="at">y =</span> humidity, <span class="at">color =</span> position)) <span class="sc">+</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span> <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Average Humidity Over Time by Tree Position (%)"</span>,</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Epoch"</span>, <span class="at">y =</span> <span class="st">"Average Humidity"</span>, <span class="at">color =</span> <span class="st">"Tree Position"</span>) <span class="sc">+</span> <span class="fu">theme_minimal</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lab1_R_files/figure-html/unnamed-chunk-1-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="caption" class="level1">
+<h1>Caption</h1>
+<p>Figure 1. Average humdity over time (epoch) by tree position. Interior trees show consistently higher humidity than edge trees, indicating distinct microclimatic conditions between forest interior and edge trees.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Show Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(agg_voltage, <span class="fu">aes</span>(<span class="at">x =</span> epoch, <span class="at">y =</span> voltage, <span class="at">color =</span> position)) <span class="sc">+</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span> <span class="fu">coord_cartesian</span>(<span class="at">ylim=</span><span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">5</span>)) <span class="sc">+</span> <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Average Voltage Over Time by Tree Position"</span>,</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Epoch"</span>, <span class="at">y =</span> <span class="st">"Average Voltage (V)"</span>, <span class="at">color =</span> <span class="st">"Tree Position"</span>) <span class="sc">+</span> <span class="fu">theme_minimal</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lab1_R_files/figure-html/unnamed-chunk-2-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="caption-1" class="level1">
+<h1>Caption</h1>
+<p>Figure 2. Average battery over time by treeposition, zoomed to 0.5 V to highlight typical sensor operating values. Voltage is generally stable around 2-3 V. Shorter coverage for edge sensors due to differences in sensor time that might have affected raw data.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Show Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">boxplot</span>(humidity <span class="sc">~</span> position, <span class="at">data=</span>sonomojoin_clean, <span class="at">col=</span><span class="fu">c</span>(<span class="st">"orchid1"</span>, <span class="st">"darksalmon"</span>), <span class="at">xlab=</span><span class="st">"Tree Position"</span>, <span class="at">ylab=</span><span class="st">"humidity (%)"</span>, <span class="at">main=</span><span class="st">"Humidity Distrib. by Tree Position"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="lab1_R_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="caption-2" class="level1">
+<h1>Caption</h1>
+<p>A box plot representation of distribution of humidity values by tree position. Interior trees have a higher median humidity than edge trees supporting the fact that forest interiors retain more moisture than forest edges.</p>
+<!-- -->
+
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Lab 1 - Redwood Trees"</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Anna Pham"</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span><span class="co"> </span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: true</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="co">    code-summary: "Show Code"</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="co">    code-tools: true</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="co">    theme: sandstone</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="an">toc:</span><span class="co"> true</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="an">execute:</span><span class="co"> </span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="co">  warning: false</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a><span class="co">  message: false</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="in">```{r setup, include=FALSE}</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>here<span class="sc">::</span><span class="fu">i_am</span>(<span class="st">"notebooks/lab1_R.qmd"</span>)</span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a><span class="co"># source all functions from R/ folder</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (fname <span class="cf">in</span> <span class="fu">list.files</span>(here<span class="sc">::</span><span class="fu">here</span>(<span class="st">"R"</span>), <span class="at">pattern =</span> <span class="st">"*.R"</span>)) {</span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">source</span>(here<span class="sc">::</span><span class="fu">here</span>(<span class="fu">file.path</span>(<span class="st">"R"</span>, fname)))</span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a><span class="co"># path to data</span></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>DATA_PATH <span class="ot">&lt;-</span> here<span class="sc">::</span><span class="fu">here</span>(<span class="st">"data"</span>)</span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a><span class="fu"># Introduction</span></span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a>Understanding how forest structure and specific climate conditions influence tree growth is a key question in forest ecology. In redwood forests, trees near the edge of the forest may experience different environmental conditions. These can include greater sunlight exposure or humidity levels, compared to trees in the interior. These differences in the position can contribute to overall variation within the position of the trees  that are currently being studied in modern day with wireless sensor networks (WSN) that collect environmental data over time. </span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a>Advances in WSN have made it possible for monitoring environmental conditions. By deploying sensor nodes, researchers can capture how microclimatic conditions vary across locations over time. However, studying these patterns can be challenging due to sensor data being incomplete, noisy, and restricting. Sensor data can lack context regarding external factors and user-interaction, making it difficult to explore patterns further. </span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a>A study concluded by Gilman Tolle (Tolle et. al) have conducted extensive sensor measurements in redwood forests, providing environmental data such as humidity. Humidity is a key variable influencing physiological stress in redwood trees. Differences in humidity between forest edge and interior locations can affect growth. Battery voltage is also another variable measured across sensor nodes. Although it is not an environmental variable, it remains critical as it provides information about sensor reliability to help distinguish meaningful environmental patterns caused by sensor failure.</span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a>This research provides a valuable framework to examine how environental conditions differ across forest positions while also evaluating how reliable sensor measurements are in the process. This lab investigates the research question, "To what extent do environmental sensor measurements such as humidity, differ between edge and interior tree positions over time, and how might sensor performance influence these observed patterns? </span>
+<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a>To address this question, tree-level measurements from mote-location-data.txt and environmental sensor data from Sonoma datasets including all, log, and net, were used in connection with the framework described in Tolle et al. (2005). Sensor measurements between edge and interior locations while observing their dynamics will be compared. By combining these datasets, we aim to characterize both microclimatic variation and the role of sensor performance in shaping observed environmental patterns.</span>
+<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a><span class="fu"># Data Overview and Collection</span></span>
+<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a>The data used in this study comes from the Sonoma redwood forest deployed network of 2004 in the research presented by Gilman Tolle, A Macroscope in the Redwoods (Tolle et. al 2005). In the study, a wireless sensor network (WSN) was installed on redwood trees to collect environmental conditions over time. Wireless sensor networks have allowed for monitoring variations in environmental measurements across different forests.</span>
+<span id="cb6-44"><a href="#cb6-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-45"><a href="#cb6-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-46"><a href="#cb6-46" aria-hidden="true" tabindex="-1"></a>Small sensor nodes called "motes," recorded environmental measurements are regular interval with a variable "epoch," that representes time indexed measurement periods. Environmental variables included humidity, adjusted humidity, and humidity measurements from sensors place at the top and bottom of the tree. Additional variables include battery voltage to assess equipment functionality and data quality. Each sensor node is uniqely identified by a variable called, "nodeid."</span>
+<span id="cb6-47"><a href="#cb6-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-48"><a href="#cb6-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-49"><a href="#cb6-49" aria-hidden="true" tabindex="-1"></a>The respective motes recorded environmental variables such as humidity and temperature associated with the humidity sensor and temperature adjusted humidity. Other variables include result time and nodeid. Measurements were recorded at regular time intervals and indexed using an epoch variable which serves as a placeholder for time and allows for observations across the sensors. Each sensor node is identified by a unique node id, "nodeid," and was deployed at a fixed depth. Measurements from vertically separated sensors include hama_top and hama_bot to capture microclimate variation. Additional variables such as battery voltage and network routing were used to assess data quality and sensor reliability. Despite its strengths, it's important to note the dataset's limitations. The large sensor data are raw and contains numerous missing values, outliers, and measurement inconsistencies, requiring careful cleaning and analysis. There are more than likely to be sensor voltage fluctuations and noisy readings that reflect hardware issues rather than true environmental influence. Additionally, tree height are constantly changing with the seasons, even when it is not visible from the outside. Overall, the observational nature of data means that causal relationships between microclimate and tree height cannot be definitively established. Unmeasured factors like soil conditions may also influence observed patterns.</span>
+<span id="cb6-50"><a href="#cb6-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-51"><a href="#cb6-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-52"><a href="#cb6-52" aria-hidden="true" tabindex="-1"></a><span class="in">```{r load-data}</span></span>
+<span id="cb6-53"><a href="#cb6-53" aria-hidden="true" tabindex="-1"></a><span class="co"># load dates data</span></span>
+<span id="cb6-54"><a href="#cb6-54" aria-hidden="true" tabindex="-1"></a>dates_orig <span class="ot">&lt;-</span> <span class="fu">load_dates_data</span>(DATA_PATH)</span>
+<span id="cb6-55"><a href="#cb6-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-56"><a href="#cb6-56" aria-hidden="true" tabindex="-1"></a><span class="co"># load motes data</span></span>
+<span id="cb6-57"><a href="#cb6-57" aria-hidden="true" tabindex="-1"></a>motes_orig <span class="ot">&lt;-</span> <span class="fu">load_mote_location_data</span>(DATA_PATH)</span>
+<span id="cb6-58"><a href="#cb6-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-59"><a href="#cb6-59" aria-hidden="true" tabindex="-1"></a><span class="co"># load redwood data</span></span>
+<span id="cb6-60"><a href="#cb6-60" aria-hidden="true" tabindex="-1"></a>redwood_all_orig <span class="ot">&lt;-</span> <span class="fu">load_redwood_data</span>(DATA_PATH, <span class="at">source =</span> <span class="st">"all"</span>)</span>
+<span id="cb6-61"><a href="#cb6-61" aria-hidden="true" tabindex="-1"></a>redwood_net_orig <span class="ot">&lt;-</span> <span class="fu">load_redwood_data</span>(DATA_PATH, <span class="at">source =</span> <span class="st">"net"</span>)</span>
+<span id="cb6-62"><a href="#cb6-62" aria-hidden="true" tabindex="-1"></a>redwood_log_orig <span class="ot">&lt;-</span> <span class="fu">load_redwood_data</span>(DATA_PATH, <span class="at">source =</span> <span class="st">"log"</span>)</span>
+<span id="cb6-63"><a href="#cb6-63" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-64"><a href="#cb6-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-65"><a href="#cb6-65" aria-hidden="true" tabindex="-1"></a><span class="fu"># Data Cleaning</span></span>
+<span id="cb6-66"><a href="#cb6-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-67"><a href="#cb6-67" aria-hidden="true" tabindex="-1"></a>When observing the raw sensor data sets, it was evident that the data sets contained missing values, repeated measurements, and implausible observations that required cleaning prior to analysis. Several data cleaning steps were performed to ensure that the data reflected meaningful environmental conditions.To start the process, the Sonoma redwood forest datasets including "all," "log," and "net," were combined into one dataset. Mote location data were then joined to the environment data using a shared node identifier called "nodeid," to classify each sensor as interior or edge tree position. This step was necessary for directly comparing environmental conditions between forest positions.</span>
+<span id="cb6-68"><a href="#cb6-68" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-69"><a href="#cb6-69" aria-hidden="true" tabindex="-1"></a>Throughout the cleaning process, it was observed that sensor nodes repeatedly recorded measurements per node and time period. Therefore, observations were aggregated to one value per node, epoch, and tree position by calculating the mean of the numeric variables. The mean was calculated because the mean preserved the average signal over time. Sensors inevitably record small fluctuations. The mean will help smooth short-term nose and retain gradual trends. It was determined that it was appropiate for humidity due to it being a continuous variable. </span>
+<span id="cb6-70"><a href="#cb6-70" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-71"><a href="#cb6-71" aria-hidden="true" tabindex="-1"></a>Missing values were handled by excluding "NA" values during aggregation. This allows available measurements to contribute to summary statistics.</span>
+<span id="cb6-72"><a href="#cb6-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-73"><a href="#cb6-73" aria-hidden="true" tabindex="-1"></a>It is also important to note that humidity cannot be less than zero, although it can get close to zero percent. This is due to Earth's present climate. Water vapor is present in the air. This makes it so humidity values outside the plausible range of 0-100% removed prior to analysis. Most likely, these values reflect sensor error rather than real environmental conditions. If they were included, it would distort visualizations and summary statistics. </span>
+<span id="cb6-74"><a href="#cb6-74" aria-hidden="true" tabindex="-1"></a>Battery voltage values were retained, including extreme values, as these measurements provide insight into sensor performance and data availabilitY rather than environmental conditions. </span>
+<span id="cb6-75"><a href="#cb6-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-76"><a href="#cb6-76" aria-hidden="true" tabindex="-1"></a>These data steps produced a consistent and reproducible dataset suitable for exploratory analysis of microclimatic patterns and sensor reliability.</span>
+<span id="cb6-77"><a href="#cb6-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-78"><a href="#cb6-78" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-79"><a href="#cb6-79" aria-hidden="true" tabindex="-1"></a><span class="in">```{r clean-data}</span></span>
+<span id="cb6-80"><a href="#cb6-80" aria-hidden="true" tabindex="-1"></a><span class="co"># load dates data</span></span>
+<span id="cb6-81"><a href="#cb6-81" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"ggplot2"</span>)</span>
+<span id="cb6-82"><a href="#cb6-82" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-83"><a href="#cb6-83" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-84"><a href="#cb6-84" aria-hidden="true" tabindex="-1"></a>dates_df <span class="ot">&lt;-</span> <span class="fu">clean_dates_data</span>(dates_orig)</span>
+<span id="cb6-85"><a href="#cb6-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-86"><a href="#cb6-86" aria-hidden="true" tabindex="-1"></a><span class="co"># load motes data</span></span>
+<span id="cb6-87"><a href="#cb6-87" aria-hidden="true" tabindex="-1"></a>motes_df <span class="ot">&lt;-</span> <span class="fu">clean_mote_location_data</span>(motes_orig)</span>
+<span id="cb6-88"><a href="#cb6-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-89"><a href="#cb6-89" aria-hidden="true" tabindex="-1"></a><span class="co"># load redwood data</span></span>
+<span id="cb6-90"><a href="#cb6-90" aria-hidden="true" tabindex="-1"></a>redwood_all_df <span class="ot">&lt;-</span> <span class="fu">clean_redwood_data</span>(redwood_all_orig)</span>
+<span id="cb6-91"><a href="#cb6-91" aria-hidden="true" tabindex="-1"></a>redwood_net_df <span class="ot">&lt;-</span> <span class="fu">clean_redwood_data</span>(redwood_net_orig)</span>
+<span id="cb6-92"><a href="#cb6-92" aria-hidden="true" tabindex="-1"></a>redwood_log_df <span class="ot">&lt;-</span> <span class="fu">clean_redwood_data</span>(redwood_log_orig)</span>
+<span id="cb6-93"><a href="#cb6-93" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-94"><a href="#cb6-94" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-95"><a href="#cb6-95" aria-hidden="true" tabindex="-1"></a><span class="co"># R data cleaning process</span></span>
+<span id="cb6-96"><a href="#cb6-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-97"><a href="#cb6-97" aria-hidden="true" tabindex="-1"></a>sonoma_all <span class="ot">&lt;-</span> redwood_all_df</span>
+<span id="cb6-98"><a href="#cb6-98" aria-hidden="true" tabindex="-1"></a>sonoma_log <span class="ot">&lt;-</span> redwood_log_df</span>
+<span id="cb6-99"><a href="#cb6-99" aria-hidden="true" tabindex="-1"></a>sonoma_net <span class="ot">&lt;-</span> redwood_net_df</span>
+<span id="cb6-100"><a href="#cb6-100" aria-hidden="true" tabindex="-1"></a>sonoma_combined <span class="ot">&lt;-</span> <span class="fu">rbind</span>(sonoma_all, sonoma_log, sonoma_net)</span>
+<span id="cb6-101"><a href="#cb6-101" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-102"><a href="#cb6-102" aria-hidden="true" tabindex="-1"></a>mote <span class="ot">&lt;-</span> motes_df</span>
+<span id="cb6-103"><a href="#cb6-103" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-104"><a href="#cb6-104" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(mote)[<span class="fu">names</span>(mote) <span class="sc">==</span> <span class="st">"ID"</span>] <span class="ot">&lt;-</span> <span class="st">"nodeid"</span></span>
+<span id="cb6-105"><a href="#cb6-105" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-106"><a href="#cb6-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-107"><a href="#cb6-107" aria-hidden="true" tabindex="-1"></a>mote<span class="sc">$</span>position <span class="ot">&lt;-</span> <span class="fu">factor</span>(<span class="fu">tolower</span>(<span class="fu">as.character</span>(mote<span class="sc">$</span>Tree)), <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">"interior"</span>, <span class="st">"edge"</span>))</span>
+<span id="cb6-108"><a href="#cb6-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-109"><a href="#cb6-109" aria-hidden="true" tabindex="-1"></a>sonomojoin <span class="ot">&lt;-</span> <span class="fu">merge</span>(sonoma_combined, mote[, <span class="fu">c</span>(<span class="st">"nodeid"</span>, <span class="st">"position"</span>)], <span class="at">by =</span> <span class="st">"nodeid"</span>)</span>
+<span id="cb6-110"><a href="#cb6-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-111"><a href="#cb6-111" aria-hidden="true" tabindex="-1"></a>no_impute <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"humidity"</span>, <span class="st">"humid_temp"</span>, <span class="st">"humid_adj"</span>, <span class="st">"hamatop"</span>, <span class="st">"hamabot"</span>)</span>
+<span id="cb6-112"><a href="#cb6-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-113"><a href="#cb6-113" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (col <span class="cf">in</span> <span class="fu">names</span>(sonomojoin)) {</span>
+<span id="cb6-114"><a href="#cb6-114" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">is.numeric</span>(sonomojoin[[col]]) <span class="sc">&amp;&amp;</span> <span class="sc">!</span>(col <span class="sc">%in%</span> no_impute)) {sonomojoin[[col]][<span class="fu">is.na</span>(sonomojoin[[col]])] <span class="ot">&lt;-</span> <span class="fu">median</span>(sonomojoin[[col]], <span class="at">na.rm =</span> <span class="cn">TRUE</span>)}</span>
+<span id="cb6-115"><a href="#cb6-115" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb6-116"><a href="#cb6-116" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-117"><a href="#cb6-117" aria-hidden="true" tabindex="-1"></a>sonomojoin_clean <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(.<span class="sc">~</span> nodeid <span class="sc">+</span> epoch <span class="sc">+</span> position, <span class="at">data =</span> sonomojoin, <span class="at">FUN =</span> <span class="cf">function</span>(x) <span class="cf">if</span> (<span class="fu">is.numeric</span>(x))<span class="fu">mean</span>(x, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)<span class="cf">else</span> x[<span class="dv">1</span>])</span>
+<span id="cb6-118"><a href="#cb6-118" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-119"><a href="#cb6-119" aria-hidden="true" tabindex="-1"></a>sonomojoin_clean <span class="ot">&lt;-</span> sonomojoin_clean[sonomojoin_clean<span class="sc">$</span>humidity <span class="sc">&gt;=</span> <span class="dv">0</span> <span class="sc">&amp;</span> sonomojoin_clean<span class="sc">$</span>humidity <span class="sc">&lt;=</span> <span class="dv">100</span>,]</span>
+<span id="cb6-120"><a href="#cb6-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-121"><a href="#cb6-121" aria-hidden="true" tabindex="-1"></a>agg_humidity <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(humidity <span class="sc">~</span> position <span class="sc">+</span> epoch, <span class="at">data =</span> sonomojoin_clean, <span class="at">FUN =</span> <span class="cf">function</span>(x) <span class="fu">mean</span>(x, <span class="at">na.rm =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb6-122"><a href="#cb6-122" aria-hidden="true" tabindex="-1"></a>agg_voltage <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(voltage <span class="sc">~</span> position <span class="sc">+</span> epoch, <span class="at">data=</span>sonomojoin_clean, <span class="at">FUN =</span> <span class="cf">function</span>(x) <span class="fu">mean</span>(x, <span class="at">na.rm=</span><span class="cn">TRUE</span>))</span>
+<span id="cb6-123"><a href="#cb6-123" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-124"><a href="#cb6-124" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-125"><a href="#cb6-125" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-126"><a href="#cb6-126" aria-hidden="true" tabindex="-1"></a><span class="fu"># Exploratory Data Analysis</span></span>
+<span id="cb6-127"><a href="#cb6-127" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-128"><a href="#cb6-128" aria-hidden="true" tabindex="-1"></a>To explore differences in microclimate between forest edge and interior positions, exploratory data analysis (EDA) was conducted to investigate differences between edge and interior redwood tree positions and to assess the influence of sensor performance on observed patterns.</span>
+<span id="cb6-129"><a href="#cb6-129" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-130"><a href="#cb6-130" aria-hidden="true" tabindex="-1"></a>Average humidity was first examined over time and across tree positions using a time series plot where humidity values were aggregated by tree position and epoch using the mean. This visualization revealed that interior trees consistently experienced high humidity levels across most epochs. Edge trees exhibited lower humidity and greater short-term variability as seen by it's cut off in the visual. These patterns suggest that interior forest environments retain moisture effectively, most likely due to reduced exposure to wind and direct sunlight. Edge trees are subject to more fluctuating atmospheric conditions. </span>
+<span id="cb6-131"><a href="#cb6-131" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-132"><a href="#cb6-132" aria-hidden="true" tabindex="-1"></a>Additionally, battery voltage was examined to evaluate sensor reliability and data availability. Voltage values were aggregated by tree position and epoch. This was visualized using a time series plot. An important note that each type of battery systems have different ranges, with cars being 12-13V. Wireless sensor networks are typically operating around 2-3V. This visualization was scaled to a typical operating range of 0-5V to avoid distortion from extreme values association with fluctations. Within this range, voltage remained stable around 2-3V meaning normal activities. However, edge sensors produced a shorter coverage compared to intersior sensors as seen by the cut off. There are many possible causes of this. Power loss, network traffic, etc. This highlights an important limitation of the datset. Differences in sensor performance and data coverage may influence interpretation of trends. </span>
+<span id="cb6-133"><a href="#cb6-133" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-134"><a href="#cb6-134" aria-hidden="true" tabindex="-1"></a>Overall, these exploratory analyses demonstrate that interior redwood trees experience more humid and stable microclimatic conditions than edge trees. It also suggests that accounting for sensor reliability is crucial when researching forest conditions from wireless sensor networks.</span>
+<span id="cb6-135"><a href="#cb6-135" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-138"><a href="#cb6-138" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb6-139"><a href="#cb6-139" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb6-140"><a href="#cb6-140" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-141"><a href="#cb6-141" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(agg_humidity, <span class="fu">aes</span>(<span class="at">x =</span> epoch, <span class="at">y =</span> humidity, <span class="at">color =</span> position)) <span class="sc">+</span></span>
+<span id="cb6-142"><a href="#cb6-142" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span> <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Average Humidity Over Time by Tree Position (%)"</span>,</span>
+<span id="cb6-143"><a href="#cb6-143" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Epoch"</span>, <span class="at">y =</span> <span class="st">"Average Humidity"</span>, <span class="at">color =</span> <span class="st">"Tree Position"</span>) <span class="sc">+</span> <span class="fu">theme_minimal</span>()</span>
+<span id="cb6-144"><a href="#cb6-144" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-145"><a href="#cb6-145" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-146"><a href="#cb6-146" aria-hidden="true" tabindex="-1"></a><span class="fu"># Caption</span></span>
+<span id="cb6-147"><a href="#cb6-147" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-148"><a href="#cb6-148" aria-hidden="true" tabindex="-1"></a>Figure 1. Average humdity over time (epoch) by tree position. Interior trees show consistently higher humidity than edge trees, indicating distinct microclimatic conditions between forest interior and edge trees.</span>
+<span id="cb6-149"><a href="#cb6-149" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-150"><a href="#cb6-150" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-151"><a href="#cb6-151" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-152"><a href="#cb6-152" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-155"><a href="#cb6-155" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb6-156"><a href="#cb6-156" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(agg_voltage, <span class="fu">aes</span>(<span class="at">x =</span> epoch, <span class="at">y =</span> voltage, <span class="at">color =</span> position)) <span class="sc">+</span></span>
+<span id="cb6-157"><a href="#cb6-157" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span> <span class="fu">coord_cartesian</span>(<span class="at">ylim=</span><span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">5</span>)) <span class="sc">+</span> <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Average Voltage Over Time by Tree Position"</span>,</span>
+<span id="cb6-158"><a href="#cb6-158" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Epoch"</span>, <span class="at">y =</span> <span class="st">"Average Voltage (V)"</span>, <span class="at">color =</span> <span class="st">"Tree Position"</span>) <span class="sc">+</span> <span class="fu">theme_minimal</span>()</span>
+<span id="cb6-159"><a href="#cb6-159" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-160"><a href="#cb6-160" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-161"><a href="#cb6-161" aria-hidden="true" tabindex="-1"></a><span class="fu"># Caption</span></span>
+<span id="cb6-162"><a href="#cb6-162" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-163"><a href="#cb6-163" aria-hidden="true" tabindex="-1"></a>Figure 2. Average battery over time by treeposition, zoomed to 0.5 V to highlight typical sensor operating values. Voltage is generally stable around 2-3 V. Shorter coverage for edge sensors due to differences in sensor time that might have affected raw data.</span>
+<span id="cb6-164"><a href="#cb6-164" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-165"><a href="#cb6-165" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-168"><a href="#cb6-168" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb6-169"><a href="#cb6-169" aria-hidden="true" tabindex="-1"></a><span class="fu">boxplot</span>(humidity <span class="sc">~</span> position, <span class="at">data=</span>sonomojoin_clean, <span class="at">col=</span><span class="fu">c</span>(<span class="st">"orchid1"</span>, <span class="st">"darksalmon"</span>), <span class="at">xlab=</span><span class="st">"Tree Position"</span>, <span class="at">ylab=</span><span class="st">"humidity (%)"</span>, <span class="at">main=</span><span class="st">"Humidity Distrib. by Tree Position"</span>)</span>
+<span id="cb6-170"><a href="#cb6-170" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-171"><a href="#cb6-171" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-172"><a href="#cb6-172" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-173"><a href="#cb6-173" aria-hidden="true" tabindex="-1"></a><span class="fu"># Caption</span></span>
+<span id="cb6-174"><a href="#cb6-174" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-175"><a href="#cb6-175" aria-hidden="true" tabindex="-1"></a>A box plot representation of distribution of humidity values by tree position. Interior trees have a higher median humidity than edge trees supporting the fact that forest interiors retain more moisture than forest edges.</span>
+</code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

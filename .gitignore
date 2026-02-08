@@ -1,0 +1,13 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.RDataTmp
+
+renv/
+renv.lock
+
+lab1/data/
+cancer_mortality
+
+
