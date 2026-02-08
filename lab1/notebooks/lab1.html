@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.8.25">
+<meta name="generator" content="quarto-1.8.27">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
@@ -59,18 +59,18 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </style>
 
 
-<script src="lab1_R_files/libs/clipboard/clipboard.min.js"></script>
-<script src="lab1_R_files/libs/quarto-html/quarto.js" type="module"></script>
-<script src="lab1_R_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
-<script src="lab1_R_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
-<script src="lab1_R_files/libs/quarto-html/popper.min.js"></script>
-<script src="lab1_R_files/libs/quarto-html/tippy.umd.min.js"></script>
-<script src="lab1_R_files/libs/quarto-html/anchor.min.js"></script>
-<link href="lab1_R_files/libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="lab1_R_files/libs/quarto-html/quarto-syntax-highlighting-7b89279ff1a6dce999919e0e67d4d9ec.css" rel="stylesheet" id="quarto-text-highlighting-styles">
-<script src="lab1_R_files/libs/bootstrap/bootstrap.min.js"></script>
-<link href="lab1_R_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="lab1_R_files/libs/bootstrap/bootstrap-889347afa0e18f2ab2e857d77b27f773.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="lab1_files/libs/clipboard/clipboard.min.js"></script>
+<script src="lab1_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="lab1_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="lab1_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="lab1_files/libs/quarto-html/popper.min.js"></script>
+<script src="lab1_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="lab1_files/libs/quarto-html/anchor.min.js"></script>
+<link href="lab1_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="lab1_files/libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="lab1_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="lab1_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="lab1_files/libs/bootstrap/bootstrap-889347afa0e18f2ab2e857d77b27f773.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 
 
 </head>
@@ -87,9 +87,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#data-overview-and-collection" id="toc-data-overview-and-collection" class="nav-link" data-scroll-target="#data-overview-and-collection">Data Overview and Collection</a></li>
   <li><a href="#data-cleaning" id="toc-data-cleaning" class="nav-link" data-scroll-target="#data-cleaning">Data Cleaning</a></li>
   <li><a href="#exploratory-data-analysis" id="toc-exploratory-data-analysis" class="nav-link" data-scroll-target="#exploratory-data-analysis">Exploratory Data Analysis</a></li>
-  <li><a href="#caption" id="toc-caption" class="nav-link" data-scroll-target="#caption">Caption</a></li>
-  <li><a href="#caption-1" id="toc-caption-1" class="nav-link" data-scroll-target="#caption-1">Caption</a></li>
-  <li><a href="#caption-2" id="toc-caption-2" class="nav-link" data-scroll-target="#caption-2">Caption</a></li>
+  <li><a href="#conclusion" id="toc-conclusion" class="nav-link" data-scroll-target="#conclusion">Conclusion</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
   </ul>
 </nav>
 </div>
@@ -122,7 +121,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <section id="introduction" class="level1">
 <h1>Introduction</h1>
-<p>Understanding how forest structure and specific climate conditions influence tree growth is a key question in forest ecology. In redwood forests, trees near the edge of the forest may experience different environmental conditions. These can include greater sunlight exposure or humidity levels, compared to trees in the interior. These differences in the position can contribute to overall variation within the position of the trees that are currently being studied in modern day with wireless sensor networks (WSN) that collect environmental data over time.</p>
+<p>Understanding how forest structure and specific climate conditions influence tree growth is a key question in forest ecology. In redwood forests, trees near the edge of the forest may experience different environmental conditions. These can include greater sunlight exposure or humidity levels, compared to trees in the interior. These differences in the position can contribute to overall variation within the position of the trees that are currently being studied in modern day with wireless sensor networks (WSNs) that collect environmental data over time.</p>
 <p>Advances in WSN have made it possible for monitoring environmental conditions. By deploying sensor nodes, researchers can capture how microclimatic conditions vary across locations over time. However, studying these patterns can be challenging due to sensor data being incomplete, noisy, and restricting. Sensor data can lack context regarding external factors and user-interaction, making it difficult to explore patterns further.</p>
 <p>A study concluded by Gilman Tolle (Tolle et. al) have conducted extensive sensor measurements in redwood forests, providing environmental data such as humidity. Humidity is a key variable influencing physiological stress in redwood trees. Differences in humidity between forest edge and interior locations can affect growth. Battery voltage is also another variable measured across sensor nodes. Although it is not an environmental variable, it remains critical as it provides information about sensor reliability to help distinguish meaningful environmental patterns caused by sensor failure.</p>
 <p>This research provides a valuable framework to examine how environental conditions differ across forest positions while also evaluating how reliable sensor measurements are in the process. This lab investigates the research question, “To what extent do environmental sensor measurements such as humidity, differ between edge and interior tree positions over time, and how might sensor performance influence these observed patterns?</p>
@@ -130,9 +129,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="data-overview-and-collection" class="level1">
 <h1>Data Overview and Collection</h1>
-<p>The data used in this study comes from the Sonoma redwood forest deployed network of 2004 in the research presented by Gilman Tolle, A Macroscope in the Redwoods (Tolle et. al 2005). In the study, a wireless sensor network (WSN) was installed on redwood trees to collect environmental conditions over time. Wireless sensor networks have allowed for monitoring variations in environmental measurements across different forests.</p>
-<p>Small sensor nodes called “motes,” recorded environmental measurements are regular interval with a variable “epoch,” that representes time indexed measurement periods. Environmental variables included humidity, adjusted humidity, and humidity measurements from sensors place at the top and bottom of the tree. Additional variables include battery voltage to assess equipment functionality and data quality. Each sensor node is uniqely identified by a variable called, “nodeid.”</p>
-<p>The respective motes recorded environmental variables such as humidity and temperature associated with the humidity sensor and temperature adjusted humidity. Other variables include result time and nodeid. Measurements were recorded at regular time intervals and indexed using an epoch variable which serves as a placeholder for time and allows for observations across the sensors. Each sensor node is identified by a unique node id, “nodeid,” and was deployed at a fixed depth. Measurements from vertically separated sensors include hama_top and hama_bot to capture microclimate variation. Additional variables such as battery voltage and network routing were used to assess data quality and sensor reliability. Despite its strengths, it’s important to note the dataset’s limitations. The large sensor data are raw and contains numerous missing values, outliers, and measurement inconsistencies, requiring careful cleaning and analysis. There are more than likely to be sensor voltage fluctuations and noisy readings that reflect hardware issues rather than true environmental influence. Additionally, tree height are constantly changing with the seasons, even when it is not visible from the outside. Overall, the observational nature of data means that causal relationships between microclimate and tree height cannot be definitively established. Unmeasured factors like soil conditions may also influence observed patterns.</p>
+<p>The data used in this lab comes from the 2004 “Macroscope in the Redwoods” study (Tolle et. al 2005), authored by Gilman Tolle. In the study, a WSN was installed on redwood trees to collect environmental conditions over time. WSNs have allowed for monitoring variations in environmental measurements across different forests.</p>
+<p>Small sensor nodes called “motes,” recorded environmental measurements are regular interval with a variable “epoch,” that represents time indexed measurement periods. Environmental variables included humidity, adjusted humidity, and humidity measurements from sensors place at the top and bottom of the tree. Additional variables include battery voltage to assess equipment functionality and data quality. Each sensor node is uniqely identified by a variable called, “nodeid.”</p>
+<p>The respective motes recorded environmental variables such as humidity associated with the humidity sensor and adjusted humidity. Other variables include result time and nodeid. Measurements were recorded at regular time intervals and indexed using an epoch variable which serves as a placeholder for time and allows for observations across the sensors. Each sensor node is identified by a unique node id, “nodeid,” and was deployed at a fixed depth. Measurements from sensors also included “hamatop” and “hamabot” to capture microclimate variation across the top and bottom of trees. Additional variables include battery voltage to assess data quality and sensor reliability.</p>
+<p>Despite its strengths, it’s important to note the dataset’s limitations. The large sensor data are raw and contains numerous missing values, outliers, and measurement inconsistencies, requiring careful cleaning and analysis. They most likely reflect sensor voltage fluctuations and noisy readings from hardware issues or device incompatability rather than true environmental factors. Because the study is observation, it’s important to take note that results can show a relationship between the variables but correlation does not equal causation. Unmeasured factors like soil conditions can also influence observed patterns.</p>
 <div class="cell">
 <details class="code-fold">
 <summary>Show Code</summary>
@@ -151,10 +151,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="data-cleaning" class="level1">
 <h1>Data Cleaning</h1>
-<p>When observing the raw sensor data sets, it was evident that the data sets contained missing values, repeated measurements, and implausible observations that required cleaning prior to analysis. Several data cleaning steps were performed to ensure that the data reflected meaningful environmental conditions.To start the process, the Sonoma redwood forest datasets including “all,” “log,” and “net,” were combined into one dataset. Mote location data were then joined to the environment data using a shared node identifier called “nodeid,” to classify each sensor as interior or edge tree position. This step was necessary for directly comparing environmental conditions between forest positions.</p>
-<p>Throughout the cleaning process, it was observed that sensor nodes repeatedly recorded measurements per node and time period. Therefore, observations were aggregated to one value per node, epoch, and tree position by calculating the mean of the numeric variables. The mean was calculated because the mean preserved the average signal over time. Sensors inevitably record small fluctuations. The mean will help smooth short-term nose and retain gradual trends. It was determined that it was appropiate for humidity due to it being a continuous variable.</p>
+<p>When observing the raw sensor data sets, it was evident that the data sets contained missing values, repeated measurements, and implausible observations that required cleaning prior to analysis. Several data cleaning steps were performed to ensure that the data reflected meaningful environmental conditions.</p>
+<p>To start this meaningful process, the Sonoma redwood forest datasets including “all,” “log,” and “net,” were combined into one dataset. Mote location data were then joined to the environment data using a shared node identifier called “nodeid,” to classify each sensor as interior or edge tree position. This step was necessary for directly comparing environmental conditions between forest positions.</p>
+<p>Throughout the cleaning process, it was discovered that sensor nodes repeatedly recorded measurements per node and time period. Therefore, observations were aggregated to one value per node, epoch, and tree position by calculating the mean of the numeric variables. The mean was calculated because the mean preserved the average signal over time. Sensors inevitably record small fluctuations. The mean will help smooth short-term nose and retain gradual trends. It was determined that it was appropriate for humidity due to it being a continuous variable.</p>
 <p>Missing values were handled by excluding “NA” values during aggregation. This allows available measurements to contribute to summary statistics.</p>
-<p>It is also important to note that humidity cannot be less than zero, although it can get close to zero percent. This is due to Earth’s present climate. Water vapor is present in the air. This makes it so humidity values outside the plausible range of 0-100% removed prior to analysis. Most likely, these values reflect sensor error rather than real environmental conditions. If they were included, it would distort visualizations and summary statistics. Battery voltage values were retained, including extreme values, as these measurements provide insight into sensor performance and data availabilitY rather than environmental conditions.</p>
+<p>It is also important to note that humidity cannot be less than zero, although it can get close to zero percent. This is due to Earth’s present climate. Water vapor is present in the air. This makes it so humidity values outside the plausible range of 0-100% removed prior to analysis. Most likely, these values reflect sensor error rather than real environmental conditions. If they were included, it would distort visualizations and summary statistics. Battery voltage values were retained, including extreme values, as these measurements provide insight into sensor performance and data availability rather than environmental conditions.</p>
 <p>These data steps produced a consistent and reproducible dataset suitable for exploratory analysis of microclimatic patterns and sensor reliability.</p>
 <div class="cell">
 <details class="code-fold">
@@ -208,29 +209,24 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="exploratory-data-analysis" class="level1">
 <h1>Exploratory Data Analysis</h1>
 <p>To explore differences in microclimate between forest edge and interior positions, exploratory data analysis (EDA) was conducted to investigate differences between edge and interior redwood tree positions and to assess the influence of sensor performance on observed patterns.</p>
-<p>Average humidity was first examined over time and across tree positions using a time series plot where humidity values were aggregated by tree position and epoch using the mean. This visualization revealed that interior trees consistently experienced high humidity levels across most epochs. Edge trees exhibited lower humidity and greater short-term variability as seen by it’s cut off in the visual. These patterns suggest that interior forest environments retain moisture effectively, most likely due to reduced exposure to wind and direct sunlight. Edge trees are subject to more fluctuating atmospheric conditions.</p>
+<p>Average humidity was observed over time and across tree positions using a time series plot where humidity values were aggregated by tree position and epoch using the mean. This visualization revealed that interior trees consistently experienced high humidity levels across most epochs. Edge trees exhibited lower humidity and greater short-term variability as seen by it’s cut off in the visual. These patterns suggest that interior forest environments retain moisture effectively, most likely due to reduced exposure to wind and direct sunlight. Edge trees are subject to more fluctuating atmospheric conditions.</p>
 <p>Additionally, battery voltage was examined to evaluate sensor reliability and data availability. Voltage values were aggregated by tree position and epoch. This was visualized using a time series plot. An important note that each type of battery systems have different ranges, with cars being 12-13V. Wireless sensor networks are typically operating around 2-3V. This visualization was scaled to a typical operating range of 0-5V to avoid distortion from extreme values association with fluctations. Within this range, voltage remained stable around 2-3V meaning normal activities. However, edge sensors produced a shorter coverage compared to intersior sensors as seen by the cut off. There are many possible causes of this. Power loss, network traffic, etc. This highlights an important limitation of the datset. Differences in sensor performance and data coverage may influence interpretation of trends.</p>
 <p>Overall, these exploratory analyses demonstrate that interior redwood trees experience more humid and stable microclimatic conditions than edge trees. It also suggests that accounting for sensor reliability is crucial when researching forest conditions from wireless sensor networks.</p>
 <div class="cell">
 <details class="code-fold">
 <summary>Show Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(agg_humidity, <span class="fu">aes</span>(<span class="at">x =</span> epoch, <span class="at">y =</span> humidity, <span class="at">color =</span> position)) <span class="sc">+</span></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span> <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Average Humidity Over Time by Tree Position (%)"</span>,</span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Epoch"</span>, <span class="at">y =</span> <span class="st">"Average Humidity"</span>, <span class="at">color =</span> <span class="st">"Tree Position"</span>) <span class="sc">+</span> <span class="fu">theme_minimal</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(agg_humidity, <span class="fu">aes</span>(<span class="at">x =</span> epoch, <span class="at">y =</span> humidity, <span class="at">color =</span> position)) <span class="sc">+</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span> <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Average Humidity Over Time by Tree Position (%)"</span>,</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Epoch"</span>, <span class="at">y =</span> <span class="st">"Average Humidity"</span>, <span class="at">color =</span> <span class="st">"Tree Position"</span>) <span class="sc">+</span> <span class="fu">theme_minimal</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="lab1_R_files/figure-html/unnamed-chunk-1-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="lab1_files/figure-html/unnamed-chunk-1-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
 </div>
-</section>
-<section id="caption" class="level1">
-<h1>Caption</h1>
 <p>Figure 1. Average humdity over time (epoch) by tree position. Interior trees show consistently higher humidity than edge trees, indicating distinct microclimatic conditions between forest interior and edge trees.</p>
 <div class="cell">
 <details class="code-fold">
@@ -242,14 +238,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="lab1_R_files/figure-html/unnamed-chunk-2-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="lab1_files/figure-html/unnamed-chunk-2-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
 </div>
-</section>
-<section id="caption-1" class="level1">
-<h1>Caption</h1>
 <p>Figure 2. Average battery over time by treeposition, zoomed to 0.5 V to highlight typical sensor operating values. Voltage is generally stable around 2-3 V. Shorter coverage for edge sensors due to differences in sensor time that might have affected raw data.</p>
 <div class="cell">
 <details class="code-fold">
@@ -259,15 +252,32 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="lab1_R_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="lab1_files/figure-html/unnamed-chunk-3-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
 </div>
-</section>
-<section id="caption-2" class="level1">
-<h1>Caption</h1>
 <p>A box plot representation of distribution of humidity values by tree position. Interior trees have a higher median humidity than edge trees supporting the fact that forest interiors retain more moisture than forest edges.</p>
+</section>
+<section id="conclusion" class="level1">
+<h1>Conclusion</h1>
+<p>Overall, the analysis investigated how microclimatic conditions differ between edge and interior redwood trees using sensor data collected from WSNs. The results from EDA process showed that interior tree locations consistently experience higher and more stable humidity levels compared to edge trees.</p>
+<p>Important takeaways were of battery voltage highlighting differences in sensor performance over time. It showed especially shorter data coverage for edge sensors. This is underlines the importance of understanding that hardware limitations can shape the patterns observed in WSNs.</p>
+<p>For future work implications, temperature, soil conditions, or seasonal data, could be incorporated to quantify differences. More sophisticated methods could also be used to impute missing values. Using more advanced methods would further improve understanding the influence of microclimatic conditions influence redwood forest structure and growth.</p>
+</section>
+<section id="references" class="level1">
+<h1>References</h1>
+<p>“Aggregate: Compute Summary Statistics of Data Subsets.” RDocumentation, www.rdocumentation.org/packages/stats/versions/3.6.2/topics/aggregate. Accessed 6 Feb.&nbsp;2026.</p>
+<p>Alex Douglas, Deon Roos. “4.2 Simple Base R Plots | An Introduction to R.” 4.2 Simple Base R Plots, 15 Jan.&nbsp;2026, intro2r.com/simple-base-r-plots.html.</p>
+<p>G. Tolle, J. Polastre, R. Szewczyk, D. Culler, N. Turner, K. Tu, S. Burgess, T. Dawson, P. Buonadonna, D. Gay, et al.&nbsp;A macroscope in the redwoods. In Proceedings of the 3rd international conference on Embedded networked sensor systems, pages 51–63, 2005.</p>
+<p>Holtz, Yan. “An Overview of Color Names in R.” Www.r-Graph-Gallery.com, 2018, r-graph-gallery.com/42-colors-names.html.</p>
+<p>“How to Use Aggregate Function in R.” GeeksforGeeks, GeeksforGeeks, 11 July 2025, www.geeksforgeeks.org/r-language/how-to-use-aggregate-function-in-r/.</p>
+<p>Holtz, Yan. “Boxplot.” The R Graph Gallery, r-graph-gallery.com/boxplot.html. Accessed 6 Feb.&nbsp;2026.</p>
+<p>“How to Specify Fun Used in by( ) or Related Apply( ) Functions.” Stack Overflow, https://stackoverflow.com/#organization, 13 Oct.&nbsp;2011, stackoverflow.com/questions/7756856/how-to-specify-fun-used-in-by-or-related-apply-functions.</p>
+<p>https://github.com/tidyverse/dplyr/issues/4448</p>
+<p>Li, Yiquan, and Zezhong Fan. “EDAV Fall 2021 Tues/Thurs Community Contributions.” Chapter 107 Base r vs.&nbsp;Ggplot2 Visualization, Github, 19 Oct.&nbsp;2022, jtr13.github.io/cc21fall2/base-r-vs.-ggplot2-visualization.html.</p>
+<p>“R Legend Placement in a Plot.” Stack Overflow, https://stackoverflow.com/#organization, 19 Nov.&nbsp;2019, stackoverflow.com/questions/8929663/r-legend-placement-in-a-plot.</p>
+<p>Skilling, Tom. “Is a Humidity of Zero Percent Possible? | WGN-TV.” Is a Humidity of Zero Percent Possible, Chicago’s Very Own WGN9, 13 Sept.&nbsp;2021, wgntv.com/weather/weather-blog/is-a-humidity-of-zero-percent-possible/.</p>
 <!-- -->
 
 </section>
@@ -741,7 +751,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
 <span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="in">```{r setup, include=FALSE}</span></span>
-<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>here<span class="sc">::</span><span class="fu">i_am</span>(<span class="st">"notebooks/lab1_R.qmd"</span>)</span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>here<span class="sc">::</span><span class="fu">i_am</span>(<span class="st">"notebooks/lab1.qmd"</span>)</span>
 <span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a><span class="co"># source all functions from R/ folder</span></span>
 <span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (fname <span class="cf">in</span> <span class="fu">list.files</span>(here<span class="sc">::</span><span class="fu">here</span>(<span class="st">"R"</span>), <span class="at">pattern =</span> <span class="st">"*.R"</span>)) {</span>
@@ -753,7 +763,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a><span class="fu"># Introduction</span></span>
-<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a>Understanding how forest structure and specific climate conditions influence tree growth is a key question in forest ecology. In redwood forests, trees near the edge of the forest may experience different environmental conditions. These can include greater sunlight exposure or humidity levels, compared to trees in the interior. These differences in the position can contribute to overall variation within the position of the trees  that are currently being studied in modern day with wireless sensor networks (WSN) that collect environmental data over time. </span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a>Understanding how forest structure and specific climate conditions influence tree growth is a key question in forest ecology. In redwood forests, trees near the edge of the forest may experience different environmental conditions. These can include greater sunlight exposure or humidity levels, compared to trees in the interior. These differences in the position can contribute to overall variation within the position of the trees  that are currently being studied in modern day with wireless sensor networks (WSNs) that collect environmental data over time. </span>
 <span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a>Advances in WSN have made it possible for monitoring environmental conditions. By deploying sensor nodes, researchers can capture how microclimatic conditions vary across locations over time. However, studying these patterns can be challenging due to sensor data being incomplete, noisy, and restricting. Sensor data can lack context regarding external factors and user-interaction, making it difficult to explore patterns further. </span>
@@ -767,111 +777,111 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a><span class="fu"># Data Overview and Collection</span></span>
 <span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a>The data used in this study comes from the Sonoma redwood forest deployed network of 2004 in the research presented by Gilman Tolle, A Macroscope in the Redwoods (Tolle et. al 2005). In the study, a wireless sensor network (WSN) was installed on redwood trees to collect environmental conditions over time. Wireless sensor networks have allowed for monitoring variations in environmental measurements across different forests.</span>
+<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a>The data used in this lab comes from the 2004 "Macroscope in the Redwoods" study (Tolle et. al 2005), authored by Gilman Tolle. In the study, a WSN was installed on redwood trees to collect environmental conditions over time. WSNs have allowed for monitoring variations in environmental measurements across different forests.</span>
 <span id="cb6-44"><a href="#cb6-44" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-45"><a href="#cb6-45" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-46"><a href="#cb6-46" aria-hidden="true" tabindex="-1"></a>Small sensor nodes called "motes," recorded environmental measurements are regular interval with a variable "epoch," that representes time indexed measurement periods. Environmental variables included humidity, adjusted humidity, and humidity measurements from sensors place at the top and bottom of the tree. Additional variables include battery voltage to assess equipment functionality and data quality. Each sensor node is uniqely identified by a variable called, "nodeid."</span>
+<span id="cb6-46"><a href="#cb6-46" aria-hidden="true" tabindex="-1"></a>Small sensor nodes called "motes," recorded environmental measurements are regular interval with a variable "epoch," that represents time indexed measurement periods. Environmental variables included humidity, adjusted humidity, and humidity measurements from sensors place at the top and bottom of the tree. Additional variables include battery voltage to assess equipment functionality and data quality. Each sensor node is uniqely identified by a variable called, "nodeid."</span>
 <span id="cb6-47"><a href="#cb6-47" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-48"><a href="#cb6-48" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-49"><a href="#cb6-49" aria-hidden="true" tabindex="-1"></a>The respective motes recorded environmental variables such as humidity and temperature associated with the humidity sensor and temperature adjusted humidity. Other variables include result time and nodeid. Measurements were recorded at regular time intervals and indexed using an epoch variable which serves as a placeholder for time and allows for observations across the sensors. Each sensor node is identified by a unique node id, "nodeid," and was deployed at a fixed depth. Measurements from vertically separated sensors include hama_top and hama_bot to capture microclimate variation. Additional variables such as battery voltage and network routing were used to assess data quality and sensor reliability. Despite its strengths, it's important to note the dataset's limitations. The large sensor data are raw and contains numerous missing values, outliers, and measurement inconsistencies, requiring careful cleaning and analysis. There are more than likely to be sensor voltage fluctuations and noisy readings that reflect hardware issues rather than true environmental influence. Additionally, tree height are constantly changing with the seasons, even when it is not visible from the outside. Overall, the observational nature of data means that causal relationships between microclimate and tree height cannot be definitively established. Unmeasured factors like soil conditions may also influence observed patterns.</span>
+<span id="cb6-49"><a href="#cb6-49" aria-hidden="true" tabindex="-1"></a>The respective motes recorded environmental variables such as humidity associated with the humidity sensor and adjusted humidity. Other variables include result time and nodeid. Measurements were recorded at regular time intervals and indexed using an epoch variable which serves as a placeholder for time and allows for observations across the sensors. Each sensor node is identified by a unique node id, "nodeid," and was deployed at a fixed depth. Measurements from sensors also included "hamatop" and "hamabot" to capture microclimate variation across the top and bottom of trees. Additional variables include battery voltage to assess data quality and sensor reliability. </span>
 <span id="cb6-50"><a href="#cb6-50" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-51"><a href="#cb6-51" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-52"><a href="#cb6-52" aria-hidden="true" tabindex="-1"></a><span class="in">```{r load-data}</span></span>
-<span id="cb6-53"><a href="#cb6-53" aria-hidden="true" tabindex="-1"></a><span class="co"># load dates data</span></span>
-<span id="cb6-54"><a href="#cb6-54" aria-hidden="true" tabindex="-1"></a>dates_orig <span class="ot">&lt;-</span> <span class="fu">load_dates_data</span>(DATA_PATH)</span>
-<span id="cb6-55"><a href="#cb6-55" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-56"><a href="#cb6-56" aria-hidden="true" tabindex="-1"></a><span class="co"># load motes data</span></span>
-<span id="cb6-57"><a href="#cb6-57" aria-hidden="true" tabindex="-1"></a>motes_orig <span class="ot">&lt;-</span> <span class="fu">load_mote_location_data</span>(DATA_PATH)</span>
-<span id="cb6-58"><a href="#cb6-58" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-59"><a href="#cb6-59" aria-hidden="true" tabindex="-1"></a><span class="co"># load redwood data</span></span>
-<span id="cb6-60"><a href="#cb6-60" aria-hidden="true" tabindex="-1"></a>redwood_all_orig <span class="ot">&lt;-</span> <span class="fu">load_redwood_data</span>(DATA_PATH, <span class="at">source =</span> <span class="st">"all"</span>)</span>
-<span id="cb6-61"><a href="#cb6-61" aria-hidden="true" tabindex="-1"></a>redwood_net_orig <span class="ot">&lt;-</span> <span class="fu">load_redwood_data</span>(DATA_PATH, <span class="at">source =</span> <span class="st">"net"</span>)</span>
-<span id="cb6-62"><a href="#cb6-62" aria-hidden="true" tabindex="-1"></a>redwood_log_orig <span class="ot">&lt;-</span> <span class="fu">load_redwood_data</span>(DATA_PATH, <span class="at">source =</span> <span class="st">"log"</span>)</span>
-<span id="cb6-63"><a href="#cb6-63" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb6-64"><a href="#cb6-64" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-65"><a href="#cb6-65" aria-hidden="true" tabindex="-1"></a><span class="fu"># Data Cleaning</span></span>
+<span id="cb6-51"><a href="#cb6-51" aria-hidden="true" tabindex="-1"></a>Despite its strengths, it's important to note the dataset's limitations. The large sensor data are raw and contains numerous missing values, outliers, and measurement inconsistencies, requiring careful cleaning and analysis. They most likely reflect sensor voltage fluctuations and noisy readings from hardware issues or device incompatability rather than true environmental factors. Because the study is observation, it's important to take note that results can show a relationship between the variables but correlation does not equal causation. Unmeasured factors like soil conditions can also influence observed patterns.</span>
+<span id="cb6-52"><a href="#cb6-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-53"><a href="#cb6-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-54"><a href="#cb6-54" aria-hidden="true" tabindex="-1"></a><span class="in">```{r load-data}</span></span>
+<span id="cb6-55"><a href="#cb6-55" aria-hidden="true" tabindex="-1"></a><span class="co"># load dates data</span></span>
+<span id="cb6-56"><a href="#cb6-56" aria-hidden="true" tabindex="-1"></a>dates_orig <span class="ot">&lt;-</span> <span class="fu">load_dates_data</span>(DATA_PATH)</span>
+<span id="cb6-57"><a href="#cb6-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-58"><a href="#cb6-58" aria-hidden="true" tabindex="-1"></a><span class="co"># load motes data</span></span>
+<span id="cb6-59"><a href="#cb6-59" aria-hidden="true" tabindex="-1"></a>motes_orig <span class="ot">&lt;-</span> <span class="fu">load_mote_location_data</span>(DATA_PATH)</span>
+<span id="cb6-60"><a href="#cb6-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-61"><a href="#cb6-61" aria-hidden="true" tabindex="-1"></a><span class="co"># load redwood data</span></span>
+<span id="cb6-62"><a href="#cb6-62" aria-hidden="true" tabindex="-1"></a>redwood_all_orig <span class="ot">&lt;-</span> <span class="fu">load_redwood_data</span>(DATA_PATH, <span class="at">source =</span> <span class="st">"all"</span>)</span>
+<span id="cb6-63"><a href="#cb6-63" aria-hidden="true" tabindex="-1"></a>redwood_net_orig <span class="ot">&lt;-</span> <span class="fu">load_redwood_data</span>(DATA_PATH, <span class="at">source =</span> <span class="st">"net"</span>)</span>
+<span id="cb6-64"><a href="#cb6-64" aria-hidden="true" tabindex="-1"></a>redwood_log_orig <span class="ot">&lt;-</span> <span class="fu">load_redwood_data</span>(DATA_PATH, <span class="at">source =</span> <span class="st">"log"</span>)</span>
+<span id="cb6-65"><a href="#cb6-65" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb6-66"><a href="#cb6-66" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-67"><a href="#cb6-67" aria-hidden="true" tabindex="-1"></a>When observing the raw sensor data sets, it was evident that the data sets contained missing values, repeated measurements, and implausible observations that required cleaning prior to analysis. Several data cleaning steps were performed to ensure that the data reflected meaningful environmental conditions.To start the process, the Sonoma redwood forest datasets including "all," "log," and "net," were combined into one dataset. Mote location data were then joined to the environment data using a shared node identifier called "nodeid," to classify each sensor as interior or edge tree position. This step was necessary for directly comparing environmental conditions between forest positions.</span>
+<span id="cb6-67"><a href="#cb6-67" aria-hidden="true" tabindex="-1"></a><span class="fu"># Data Cleaning</span></span>
 <span id="cb6-68"><a href="#cb6-68" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-69"><a href="#cb6-69" aria-hidden="true" tabindex="-1"></a>Throughout the cleaning process, it was observed that sensor nodes repeatedly recorded measurements per node and time period. Therefore, observations were aggregated to one value per node, epoch, and tree position by calculating the mean of the numeric variables. The mean was calculated because the mean preserved the average signal over time. Sensors inevitably record small fluctuations. The mean will help smooth short-term nose and retain gradual trends. It was determined that it was appropiate for humidity due to it being a continuous variable. </span>
+<span id="cb6-69"><a href="#cb6-69" aria-hidden="true" tabindex="-1"></a>When observing the raw sensor data sets, it was evident that the data sets contained missing values, repeated measurements, and implausible observations that required cleaning prior to analysis. Several data cleaning steps were performed to ensure that the data reflected meaningful environmental conditions.</span>
 <span id="cb6-70"><a href="#cb6-70" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-71"><a href="#cb6-71" aria-hidden="true" tabindex="-1"></a>Missing values were handled by excluding "NA" values during aggregation. This allows available measurements to contribute to summary statistics.</span>
+<span id="cb6-71"><a href="#cb6-71" aria-hidden="true" tabindex="-1"></a>To start this meaningful process, the Sonoma redwood forest datasets including "all," "log," and "net," were combined into one dataset. Mote location data were then joined to the environment data using a shared node identifier called "nodeid," to classify each sensor as interior or edge tree position. This step was necessary for directly comparing environmental conditions between forest positions.</span>
 <span id="cb6-72"><a href="#cb6-72" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-73"><a href="#cb6-73" aria-hidden="true" tabindex="-1"></a>It is also important to note that humidity cannot be less than zero, although it can get close to zero percent. This is due to Earth's present climate. Water vapor is present in the air. This makes it so humidity values outside the plausible range of 0-100% removed prior to analysis. Most likely, these values reflect sensor error rather than real environmental conditions. If they were included, it would distort visualizations and summary statistics. </span>
-<span id="cb6-74"><a href="#cb6-74" aria-hidden="true" tabindex="-1"></a>Battery voltage values were retained, including extreme values, as these measurements provide insight into sensor performance and data availabilitY rather than environmental conditions. </span>
-<span id="cb6-75"><a href="#cb6-75" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-76"><a href="#cb6-76" aria-hidden="true" tabindex="-1"></a>These data steps produced a consistent and reproducible dataset suitable for exploratory analysis of microclimatic patterns and sensor reliability.</span>
-<span id="cb6-77"><a href="#cb6-77" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-78"><a href="#cb6-78" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-79"><a href="#cb6-79" aria-hidden="true" tabindex="-1"></a><span class="in">```{r clean-data}</span></span>
-<span id="cb6-80"><a href="#cb6-80" aria-hidden="true" tabindex="-1"></a><span class="co"># load dates data</span></span>
-<span id="cb6-81"><a href="#cb6-81" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"ggplot2"</span>)</span>
+<span id="cb6-73"><a href="#cb6-73" aria-hidden="true" tabindex="-1"></a>Throughout the cleaning process, it was discovered that sensor nodes repeatedly recorded measurements per node and time period. Therefore, observations were aggregated to one value per node, epoch, and tree position by calculating the mean of the numeric variables. The mean was calculated because the mean preserved the average signal over time. Sensors inevitably record small fluctuations. The mean will help smooth short-term nose and retain gradual trends. It was determined that it was appropriate for humidity due to it being a continuous variable. </span>
+<span id="cb6-74"><a href="#cb6-74" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-75"><a href="#cb6-75" aria-hidden="true" tabindex="-1"></a>Missing values were handled by excluding "NA" values during aggregation. This allows available measurements to contribute to summary statistics.</span>
+<span id="cb6-76"><a href="#cb6-76" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-77"><a href="#cb6-77" aria-hidden="true" tabindex="-1"></a>It is also important to note that humidity cannot be less than zero, although it can get close to zero percent. This is due to Earth's present climate. Water vapor is present in the air. This makes it so humidity values outside the plausible range of 0-100% removed prior to analysis. Most likely, these values reflect sensor error rather than real environmental conditions. If they were included, it would distort visualizations and summary statistics. </span>
+<span id="cb6-78"><a href="#cb6-78" aria-hidden="true" tabindex="-1"></a>Battery voltage values were retained, including extreme values, as these measurements provide insight into sensor performance and data availability rather than environmental conditions. </span>
+<span id="cb6-79"><a href="#cb6-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-80"><a href="#cb6-80" aria-hidden="true" tabindex="-1"></a>These data steps produced a consistent and reproducible dataset suitable for exploratory analysis of microclimatic patterns and sensor reliability.</span>
+<span id="cb6-81"><a href="#cb6-81" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-82"><a href="#cb6-82" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-83"><a href="#cb6-83" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-84"><a href="#cb6-84" aria-hidden="true" tabindex="-1"></a>dates_df <span class="ot">&lt;-</span> <span class="fu">clean_dates_data</span>(dates_orig)</span>
-<span id="cb6-85"><a href="#cb6-85" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-86"><a href="#cb6-86" aria-hidden="true" tabindex="-1"></a><span class="co"># load motes data</span></span>
-<span id="cb6-87"><a href="#cb6-87" aria-hidden="true" tabindex="-1"></a>motes_df <span class="ot">&lt;-</span> <span class="fu">clean_mote_location_data</span>(motes_orig)</span>
-<span id="cb6-88"><a href="#cb6-88" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-89"><a href="#cb6-89" aria-hidden="true" tabindex="-1"></a><span class="co"># load redwood data</span></span>
-<span id="cb6-90"><a href="#cb6-90" aria-hidden="true" tabindex="-1"></a>redwood_all_df <span class="ot">&lt;-</span> <span class="fu">clean_redwood_data</span>(redwood_all_orig)</span>
-<span id="cb6-91"><a href="#cb6-91" aria-hidden="true" tabindex="-1"></a>redwood_net_df <span class="ot">&lt;-</span> <span class="fu">clean_redwood_data</span>(redwood_net_orig)</span>
-<span id="cb6-92"><a href="#cb6-92" aria-hidden="true" tabindex="-1"></a>redwood_log_df <span class="ot">&lt;-</span> <span class="fu">clean_redwood_data</span>(redwood_log_orig)</span>
-<span id="cb6-93"><a href="#cb6-93" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-94"><a href="#cb6-94" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-95"><a href="#cb6-95" aria-hidden="true" tabindex="-1"></a><span class="co"># R data cleaning process</span></span>
-<span id="cb6-96"><a href="#cb6-96" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-97"><a href="#cb6-97" aria-hidden="true" tabindex="-1"></a>sonoma_all <span class="ot">&lt;-</span> redwood_all_df</span>
-<span id="cb6-98"><a href="#cb6-98" aria-hidden="true" tabindex="-1"></a>sonoma_log <span class="ot">&lt;-</span> redwood_log_df</span>
-<span id="cb6-99"><a href="#cb6-99" aria-hidden="true" tabindex="-1"></a>sonoma_net <span class="ot">&lt;-</span> redwood_net_df</span>
-<span id="cb6-100"><a href="#cb6-100" aria-hidden="true" tabindex="-1"></a>sonoma_combined <span class="ot">&lt;-</span> <span class="fu">rbind</span>(sonoma_all, sonoma_log, sonoma_net)</span>
-<span id="cb6-101"><a href="#cb6-101" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-102"><a href="#cb6-102" aria-hidden="true" tabindex="-1"></a>mote <span class="ot">&lt;-</span> motes_df</span>
-<span id="cb6-103"><a href="#cb6-103" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-104"><a href="#cb6-104" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(mote)[<span class="fu">names</span>(mote) <span class="sc">==</span> <span class="st">"ID"</span>] <span class="ot">&lt;-</span> <span class="st">"nodeid"</span></span>
+<span id="cb6-83"><a href="#cb6-83" aria-hidden="true" tabindex="-1"></a><span class="in">```{r clean-data}</span></span>
+<span id="cb6-84"><a href="#cb6-84" aria-hidden="true" tabindex="-1"></a><span class="co"># load dates data</span></span>
+<span id="cb6-85"><a href="#cb6-85" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"ggplot2"</span>)</span>
+<span id="cb6-86"><a href="#cb6-86" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-87"><a href="#cb6-87" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-88"><a href="#cb6-88" aria-hidden="true" tabindex="-1"></a>dates_df <span class="ot">&lt;-</span> <span class="fu">clean_dates_data</span>(dates_orig)</span>
+<span id="cb6-89"><a href="#cb6-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-90"><a href="#cb6-90" aria-hidden="true" tabindex="-1"></a><span class="co"># load motes data</span></span>
+<span id="cb6-91"><a href="#cb6-91" aria-hidden="true" tabindex="-1"></a>motes_df <span class="ot">&lt;-</span> <span class="fu">clean_mote_location_data</span>(motes_orig)</span>
+<span id="cb6-92"><a href="#cb6-92" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-93"><a href="#cb6-93" aria-hidden="true" tabindex="-1"></a><span class="co"># load redwood data</span></span>
+<span id="cb6-94"><a href="#cb6-94" aria-hidden="true" tabindex="-1"></a>redwood_all_df <span class="ot">&lt;-</span> <span class="fu">clean_redwood_data</span>(redwood_all_orig)</span>
+<span id="cb6-95"><a href="#cb6-95" aria-hidden="true" tabindex="-1"></a>redwood_net_df <span class="ot">&lt;-</span> <span class="fu">clean_redwood_data</span>(redwood_net_orig)</span>
+<span id="cb6-96"><a href="#cb6-96" aria-hidden="true" tabindex="-1"></a>redwood_log_df <span class="ot">&lt;-</span> <span class="fu">clean_redwood_data</span>(redwood_log_orig)</span>
+<span id="cb6-97"><a href="#cb6-97" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-98"><a href="#cb6-98" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-99"><a href="#cb6-99" aria-hidden="true" tabindex="-1"></a><span class="co"># R data cleaning process</span></span>
+<span id="cb6-100"><a href="#cb6-100" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-101"><a href="#cb6-101" aria-hidden="true" tabindex="-1"></a>sonoma_all <span class="ot">&lt;-</span> redwood_all_df</span>
+<span id="cb6-102"><a href="#cb6-102" aria-hidden="true" tabindex="-1"></a>sonoma_log <span class="ot">&lt;-</span> redwood_log_df</span>
+<span id="cb6-103"><a href="#cb6-103" aria-hidden="true" tabindex="-1"></a>sonoma_net <span class="ot">&lt;-</span> redwood_net_df</span>
+<span id="cb6-104"><a href="#cb6-104" aria-hidden="true" tabindex="-1"></a>sonoma_combined <span class="ot">&lt;-</span> <span class="fu">rbind</span>(sonoma_all, sonoma_log, sonoma_net)</span>
 <span id="cb6-105"><a href="#cb6-105" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-106"><a href="#cb6-106" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-107"><a href="#cb6-107" aria-hidden="true" tabindex="-1"></a>mote<span class="sc">$</span>position <span class="ot">&lt;-</span> <span class="fu">factor</span>(<span class="fu">tolower</span>(<span class="fu">as.character</span>(mote<span class="sc">$</span>Tree)), <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">"interior"</span>, <span class="st">"edge"</span>))</span>
-<span id="cb6-108"><a href="#cb6-108" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-109"><a href="#cb6-109" aria-hidden="true" tabindex="-1"></a>sonomojoin <span class="ot">&lt;-</span> <span class="fu">merge</span>(sonoma_combined, mote[, <span class="fu">c</span>(<span class="st">"nodeid"</span>, <span class="st">"position"</span>)], <span class="at">by =</span> <span class="st">"nodeid"</span>)</span>
+<span id="cb6-106"><a href="#cb6-106" aria-hidden="true" tabindex="-1"></a>mote <span class="ot">&lt;-</span> motes_df</span>
+<span id="cb6-107"><a href="#cb6-107" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-108"><a href="#cb6-108" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(mote)[<span class="fu">names</span>(mote) <span class="sc">==</span> <span class="st">"ID"</span>] <span class="ot">&lt;-</span> <span class="st">"nodeid"</span></span>
+<span id="cb6-109"><a href="#cb6-109" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-110"><a href="#cb6-110" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-111"><a href="#cb6-111" aria-hidden="true" tabindex="-1"></a>no_impute <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"humidity"</span>, <span class="st">"humid_temp"</span>, <span class="st">"humid_adj"</span>, <span class="st">"hamatop"</span>, <span class="st">"hamabot"</span>)</span>
+<span id="cb6-111"><a href="#cb6-111" aria-hidden="true" tabindex="-1"></a>mote<span class="sc">$</span>position <span class="ot">&lt;-</span> <span class="fu">factor</span>(<span class="fu">tolower</span>(<span class="fu">as.character</span>(mote<span class="sc">$</span>Tree)), <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">"interior"</span>, <span class="st">"edge"</span>))</span>
 <span id="cb6-112"><a href="#cb6-112" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-113"><a href="#cb6-113" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (col <span class="cf">in</span> <span class="fu">names</span>(sonomojoin)) {</span>
-<span id="cb6-114"><a href="#cb6-114" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">is.numeric</span>(sonomojoin[[col]]) <span class="sc">&amp;&amp;</span> <span class="sc">!</span>(col <span class="sc">%in%</span> no_impute)) {sonomojoin[[col]][<span class="fu">is.na</span>(sonomojoin[[col]])] <span class="ot">&lt;-</span> <span class="fu">median</span>(sonomojoin[[col]], <span class="at">na.rm =</span> <span class="cn">TRUE</span>)}</span>
-<span id="cb6-115"><a href="#cb6-115" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb6-113"><a href="#cb6-113" aria-hidden="true" tabindex="-1"></a>sonomojoin <span class="ot">&lt;-</span> <span class="fu">merge</span>(sonoma_combined, mote[, <span class="fu">c</span>(<span class="st">"nodeid"</span>, <span class="st">"position"</span>)], <span class="at">by =</span> <span class="st">"nodeid"</span>)</span>
+<span id="cb6-114"><a href="#cb6-114" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-115"><a href="#cb6-115" aria-hidden="true" tabindex="-1"></a>no_impute <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"humidity"</span>, <span class="st">"humid_temp"</span>, <span class="st">"humid_adj"</span>, <span class="st">"hamatop"</span>, <span class="st">"hamabot"</span>)</span>
 <span id="cb6-116"><a href="#cb6-116" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-117"><a href="#cb6-117" aria-hidden="true" tabindex="-1"></a>sonomojoin_clean <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(.<span class="sc">~</span> nodeid <span class="sc">+</span> epoch <span class="sc">+</span> position, <span class="at">data =</span> sonomojoin, <span class="at">FUN =</span> <span class="cf">function</span>(x) <span class="cf">if</span> (<span class="fu">is.numeric</span>(x))<span class="fu">mean</span>(x, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)<span class="cf">else</span> x[<span class="dv">1</span>])</span>
-<span id="cb6-118"><a href="#cb6-118" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-119"><a href="#cb6-119" aria-hidden="true" tabindex="-1"></a>sonomojoin_clean <span class="ot">&lt;-</span> sonomojoin_clean[sonomojoin_clean<span class="sc">$</span>humidity <span class="sc">&gt;=</span> <span class="dv">0</span> <span class="sc">&amp;</span> sonomojoin_clean<span class="sc">$</span>humidity <span class="sc">&lt;=</span> <span class="dv">100</span>,]</span>
+<span id="cb6-117"><a href="#cb6-117" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (col <span class="cf">in</span> <span class="fu">names</span>(sonomojoin)) {</span>
+<span id="cb6-118"><a href="#cb6-118" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">is.numeric</span>(sonomojoin[[col]]) <span class="sc">&amp;&amp;</span> <span class="sc">!</span>(col <span class="sc">%in%</span> no_impute)) {sonomojoin[[col]][<span class="fu">is.na</span>(sonomojoin[[col]])] <span class="ot">&lt;-</span> <span class="fu">median</span>(sonomojoin[[col]], <span class="at">na.rm =</span> <span class="cn">TRUE</span>)}</span>
+<span id="cb6-119"><a href="#cb6-119" aria-hidden="true" tabindex="-1"></a>}</span>
 <span id="cb6-120"><a href="#cb6-120" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-121"><a href="#cb6-121" aria-hidden="true" tabindex="-1"></a>agg_humidity <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(humidity <span class="sc">~</span> position <span class="sc">+</span> epoch, <span class="at">data =</span> sonomojoin_clean, <span class="at">FUN =</span> <span class="cf">function</span>(x) <span class="fu">mean</span>(x, <span class="at">na.rm =</span> <span class="cn">TRUE</span>))</span>
-<span id="cb6-122"><a href="#cb6-122" aria-hidden="true" tabindex="-1"></a>agg_voltage <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(voltage <span class="sc">~</span> position <span class="sc">+</span> epoch, <span class="at">data=</span>sonomojoin_clean, <span class="at">FUN =</span> <span class="cf">function</span>(x) <span class="fu">mean</span>(x, <span class="at">na.rm=</span><span class="cn">TRUE</span>))</span>
-<span id="cb6-123"><a href="#cb6-123" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-124"><a href="#cb6-124" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb6-125"><a href="#cb6-125" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-126"><a href="#cb6-126" aria-hidden="true" tabindex="-1"></a><span class="fu"># Exploratory Data Analysis</span></span>
+<span id="cb6-121"><a href="#cb6-121" aria-hidden="true" tabindex="-1"></a>sonomojoin_clean <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(.<span class="sc">~</span> nodeid <span class="sc">+</span> epoch <span class="sc">+</span> position, <span class="at">data =</span> sonomojoin, <span class="at">FUN =</span> <span class="cf">function</span>(x) <span class="cf">if</span> (<span class="fu">is.numeric</span>(x))<span class="fu">mean</span>(x, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)<span class="cf">else</span> x[<span class="dv">1</span>])</span>
+<span id="cb6-122"><a href="#cb6-122" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-123"><a href="#cb6-123" aria-hidden="true" tabindex="-1"></a>sonomojoin_clean <span class="ot">&lt;-</span> sonomojoin_clean[sonomojoin_clean<span class="sc">$</span>humidity <span class="sc">&gt;=</span> <span class="dv">0</span> <span class="sc">&amp;</span> sonomojoin_clean<span class="sc">$</span>humidity <span class="sc">&lt;=</span> <span class="dv">100</span>,]</span>
+<span id="cb6-124"><a href="#cb6-124" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-125"><a href="#cb6-125" aria-hidden="true" tabindex="-1"></a>agg_humidity <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(humidity <span class="sc">~</span> position <span class="sc">+</span> epoch, <span class="at">data =</span> sonomojoin_clean, <span class="at">FUN =</span> <span class="cf">function</span>(x) <span class="fu">mean</span>(x, <span class="at">na.rm =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb6-126"><a href="#cb6-126" aria-hidden="true" tabindex="-1"></a>agg_voltage <span class="ot">&lt;-</span> <span class="fu">aggregate</span>(voltage <span class="sc">~</span> position <span class="sc">+</span> epoch, <span class="at">data=</span>sonomojoin_clean, <span class="at">FUN =</span> <span class="cf">function</span>(x) <span class="fu">mean</span>(x, <span class="at">na.rm=</span><span class="cn">TRUE</span>))</span>
 <span id="cb6-127"><a href="#cb6-127" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-128"><a href="#cb6-128" aria-hidden="true" tabindex="-1"></a>To explore differences in microclimate between forest edge and interior positions, exploratory data analysis (EDA) was conducted to investigate differences between edge and interior redwood tree positions and to assess the influence of sensor performance on observed patterns.</span>
+<span id="cb6-128"><a href="#cb6-128" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb6-129"><a href="#cb6-129" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-130"><a href="#cb6-130" aria-hidden="true" tabindex="-1"></a>Average humidity was first examined over time and across tree positions using a time series plot where humidity values were aggregated by tree position and epoch using the mean. This visualization revealed that interior trees consistently experienced high humidity levels across most epochs. Edge trees exhibited lower humidity and greater short-term variability as seen by it's cut off in the visual. These patterns suggest that interior forest environments retain moisture effectively, most likely due to reduced exposure to wind and direct sunlight. Edge trees are subject to more fluctuating atmospheric conditions. </span>
+<span id="cb6-130"><a href="#cb6-130" aria-hidden="true" tabindex="-1"></a><span class="fu"># Exploratory Data Analysis</span></span>
 <span id="cb6-131"><a href="#cb6-131" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-132"><a href="#cb6-132" aria-hidden="true" tabindex="-1"></a>Additionally, battery voltage was examined to evaluate sensor reliability and data availability. Voltage values were aggregated by tree position and epoch. This was visualized using a time series plot. An important note that each type of battery systems have different ranges, with cars being 12-13V. Wireless sensor networks are typically operating around 2-3V. This visualization was scaled to a typical operating range of 0-5V to avoid distortion from extreme values association with fluctations. Within this range, voltage remained stable around 2-3V meaning normal activities. However, edge sensors produced a shorter coverage compared to intersior sensors as seen by the cut off. There are many possible causes of this. Power loss, network traffic, etc. This highlights an important limitation of the datset. Differences in sensor performance and data coverage may influence interpretation of trends. </span>
+<span id="cb6-132"><a href="#cb6-132" aria-hidden="true" tabindex="-1"></a>To explore differences in microclimate between forest edge and interior positions, exploratory data analysis (EDA) was conducted to investigate differences between edge and interior redwood tree positions and to assess the influence of sensor performance on observed patterns.</span>
 <span id="cb6-133"><a href="#cb6-133" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-134"><a href="#cb6-134" aria-hidden="true" tabindex="-1"></a>Overall, these exploratory analyses demonstrate that interior redwood trees experience more humid and stable microclimatic conditions than edge trees. It also suggests that accounting for sensor reliability is crucial when researching forest conditions from wireless sensor networks.</span>
+<span id="cb6-134"><a href="#cb6-134" aria-hidden="true" tabindex="-1"></a>Average humidity was observed over time and across tree positions using a time series plot where humidity values were aggregated by tree position and epoch using the mean. This visualization revealed that interior trees consistently experienced high humidity levels across most epochs. Edge trees exhibited lower humidity and greater short-term variability as seen by it's cut off in the visual. These patterns suggest that interior forest environments retain moisture effectively, most likely due to reduced exposure to wind and direct sunlight. Edge trees are subject to more fluctuating atmospheric conditions. </span>
 <span id="cb6-135"><a href="#cb6-135" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-138"><a href="#cb6-138" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb6-139"><a href="#cb6-139" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
-<span id="cb6-140"><a href="#cb6-140" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-141"><a href="#cb6-141" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(agg_humidity, <span class="fu">aes</span>(<span class="at">x =</span> epoch, <span class="at">y =</span> humidity, <span class="at">color =</span> position)) <span class="sc">+</span></span>
-<span id="cb6-142"><a href="#cb6-142" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span> <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Average Humidity Over Time by Tree Position (%)"</span>,</span>
-<span id="cb6-143"><a href="#cb6-143" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Epoch"</span>, <span class="at">y =</span> <span class="st">"Average Humidity"</span>, <span class="at">color =</span> <span class="st">"Tree Position"</span>) <span class="sc">+</span> <span class="fu">theme_minimal</span>()</span>
-<span id="cb6-144"><a href="#cb6-144" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-145"><a href="#cb6-145" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb6-146"><a href="#cb6-146" aria-hidden="true" tabindex="-1"></a><span class="fu"># Caption</span></span>
-<span id="cb6-147"><a href="#cb6-147" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-148"><a href="#cb6-148" aria-hidden="true" tabindex="-1"></a>Figure 1. Average humdity over time (epoch) by tree position. Interior trees show consistently higher humidity than edge trees, indicating distinct microclimatic conditions between forest interior and edge trees.</span>
-<span id="cb6-149"><a href="#cb6-149" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-136"><a href="#cb6-136" aria-hidden="true" tabindex="-1"></a>Additionally, battery voltage was examined to evaluate sensor reliability and data availability. Voltage values were aggregated by tree position and epoch. This was visualized using a time series plot. An important note that each type of battery systems have different ranges, with cars being 12-13V. Wireless sensor networks are typically operating around 2-3V. This visualization was scaled to a typical operating range of 0-5V to avoid distortion from extreme values association with fluctations. Within this range, voltage remained stable around 2-3V meaning normal activities. However, edge sensors produced a shorter coverage compared to intersior sensors as seen by the cut off. There are many possible causes of this. Power loss, network traffic, etc. This highlights an important limitation of the datset. Differences in sensor performance and data coverage may influence interpretation of trends. </span>
+<span id="cb6-137"><a href="#cb6-137" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-138"><a href="#cb6-138" aria-hidden="true" tabindex="-1"></a>Overall, these exploratory analyses demonstrate that interior redwood trees experience more humid and stable microclimatic conditions than edge trees. It also suggests that accounting for sensor reliability is crucial when researching forest conditions from wireless sensor networks.</span>
+<span id="cb6-139"><a href="#cb6-139" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-142"><a href="#cb6-142" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb6-143"><a href="#cb6-143" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(agg_humidity, <span class="fu">aes</span>(<span class="at">x =</span> epoch, <span class="at">y =</span> humidity, <span class="at">color =</span> position)) <span class="sc">+</span></span>
+<span id="cb6-144"><a href="#cb6-144" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span> <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Average Humidity Over Time by Tree Position (%)"</span>,</span>
+<span id="cb6-145"><a href="#cb6-145" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Epoch"</span>, <span class="at">y =</span> <span class="st">"Average Humidity"</span>, <span class="at">color =</span> <span class="st">"Tree Position"</span>) <span class="sc">+</span> <span class="fu">theme_minimal</span>()</span>
+<span id="cb6-146"><a href="#cb6-146" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-147"><a href="#cb6-147" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-148"><a href="#cb6-148" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-149"><a href="#cb6-149" aria-hidden="true" tabindex="-1"></a>Figure 1. Average humdity over time (epoch) by tree position. Interior trees show consistently higher humidity than edge trees, indicating distinct microclimatic conditions between forest interior and edge trees.</span>
 <span id="cb6-150"><a href="#cb6-150" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-151"><a href="#cb6-151" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-152"><a href="#cb6-152" aria-hidden="true" tabindex="-1"></a></span>
@@ -881,19 +891,50 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb6-158"><a href="#cb6-158" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Epoch"</span>, <span class="at">y =</span> <span class="st">"Average Voltage (V)"</span>, <span class="at">color =</span> <span class="st">"Tree Position"</span>) <span class="sc">+</span> <span class="fu">theme_minimal</span>()</span>
 <span id="cb6-159"><a href="#cb6-159" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-160"><a href="#cb6-160" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb6-161"><a href="#cb6-161" aria-hidden="true" tabindex="-1"></a><span class="fu"># Caption</span></span>
-<span id="cb6-162"><a href="#cb6-162" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-163"><a href="#cb6-163" aria-hidden="true" tabindex="-1"></a>Figure 2. Average battery over time by treeposition, zoomed to 0.5 V to highlight typical sensor operating values. Voltage is generally stable around 2-3 V. Shorter coverage for edge sensors due to differences in sensor time that might have affected raw data.</span>
+<span id="cb6-161"><a href="#cb6-161" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-162"><a href="#cb6-162" aria-hidden="true" tabindex="-1"></a>Figure 2. Average battery over time by treeposition, zoomed to 0.5 V to highlight typical sensor operating values. Voltage is generally stable around 2-3 V. Shorter coverage for edge sensors due to differences in sensor time that might have affected raw data.</span>
+<span id="cb6-163"><a href="#cb6-163" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-164"><a href="#cb6-164" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-165"><a href="#cb6-165" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-168"><a href="#cb6-168" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb6-169"><a href="#cb6-169" aria-hidden="true" tabindex="-1"></a><span class="fu">boxplot</span>(humidity <span class="sc">~</span> position, <span class="at">data=</span>sonomojoin_clean, <span class="at">col=</span><span class="fu">c</span>(<span class="st">"orchid1"</span>, <span class="st">"darksalmon"</span>), <span class="at">xlab=</span><span class="st">"Tree Position"</span>, <span class="at">ylab=</span><span class="st">"humidity (%)"</span>, <span class="at">main=</span><span class="st">"Humidity Distrib. by Tree Position"</span>)</span>
+<span id="cb6-167"><a href="#cb6-167" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb6-168"><a href="#cb6-168" aria-hidden="true" tabindex="-1"></a><span class="fu">boxplot</span>(humidity <span class="sc">~</span> position, <span class="at">data=</span>sonomojoin_clean, <span class="at">col=</span><span class="fu">c</span>(<span class="st">"orchid1"</span>, <span class="st">"darksalmon"</span>), <span class="at">xlab=</span><span class="st">"Tree Position"</span>, <span class="at">ylab=</span><span class="st">"humidity (%)"</span>, <span class="at">main=</span><span class="st">"Humidity Distrib. by Tree Position"</span>)</span>
+<span id="cb6-169"><a href="#cb6-169" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-170"><a href="#cb6-170" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-171"><a href="#cb6-171" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-172"><a href="#cb6-172" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb6-173"><a href="#cb6-173" aria-hidden="true" tabindex="-1"></a><span class="fu"># Caption</span></span>
+<span id="cb6-171"><a href="#cb6-171" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-172"><a href="#cb6-172" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-173"><a href="#cb6-173" aria-hidden="true" tabindex="-1"></a>A box plot representation of distribution of humidity values by tree position. Interior trees have a higher median humidity than edge trees supporting the fact that forest interiors retain more moisture than forest edges.</span>
 <span id="cb6-174"><a href="#cb6-174" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-175"><a href="#cb6-175" aria-hidden="true" tabindex="-1"></a>A box plot representation of distribution of humidity values by tree position. Interior trees have a higher median humidity than edge trees supporting the fact that forest interiors retain more moisture than forest edges.</span>
+<span id="cb6-175"><a href="#cb6-175" aria-hidden="true" tabindex="-1"></a><span class="fu"># Conclusion</span></span>
+<span id="cb6-176"><a href="#cb6-176" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-177"><a href="#cb6-177" aria-hidden="true" tabindex="-1"></a>Overall, the analysis investigated how microclimatic conditions differ between edge and interior redwood trees using sensor data collected from WSNs. The results from EDA process showed that interior tree locations consistently experience higher and more stable humidity levels compared to edge trees.</span>
+<span id="cb6-178"><a href="#cb6-178" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-179"><a href="#cb6-179" aria-hidden="true" tabindex="-1"></a>Important takeaways were of battery voltage highlighting differences in sensor performance over time. It showed especially shorter data coverage for edge sensors. This is underlines the importance of understanding that hardware limitations can shape the patterns observed in WSNs. </span>
+<span id="cb6-180"><a href="#cb6-180" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-181"><a href="#cb6-181" aria-hidden="true" tabindex="-1"></a>For future work implications, temperature, soil conditions, or seasonal data, could be incorporated to quantify differences. More sophisticated methods could also be used to impute missing values. Using more advanced methods would further improve understanding the influence of microclimatic conditions influence redwood forest structure and growth.</span>
+<span id="cb6-182"><a href="#cb6-182" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-183"><a href="#cb6-183" aria-hidden="true" tabindex="-1"></a><span class="fu"># References</span></span>
+<span id="cb6-184"><a href="#cb6-184" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-185"><a href="#cb6-185" aria-hidden="true" tabindex="-1"></a>“Aggregate: Compute Summary Statistics of Data Subsets.” RDocumentation, www.rdocumentation.org/packages/stats/versions/3.6.2/topics/aggregate. Accessed 6 Feb. 2026.</span>
+<span id="cb6-186"><a href="#cb6-186" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-187"><a href="#cb6-187" aria-hidden="true" tabindex="-1"></a>Alex Douglas, Deon Roos. “4.2 Simple Base R Plots | An Introduction to R.” 4.2 Simple Base R Plots, 15 Jan. 2026, intro2r.com/simple-base-r-plots.html.</span>
+<span id="cb6-188"><a href="#cb6-188" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-189"><a href="#cb6-189" aria-hidden="true" tabindex="-1"></a>G. Tolle, J. Polastre, R. Szewczyk, D. Culler, N. Turner, K. Tu, S. Burgess, T. Dawson, P. Buonadonna, D. Gay, et al. A macroscope in the redwoods. In Proceedings of the 3rd</span>
+<span id="cb6-190"><a href="#cb6-190" aria-hidden="true" tabindex="-1"></a>international conference on Embedded networked sensor systems, pages 51–63, 2005.</span>
+<span id="cb6-191"><a href="#cb6-191" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-192"><a href="#cb6-192" aria-hidden="true" tabindex="-1"></a>Holtz, Yan. “An Overview of Color Names in R.” Www.r-Graph-Gallery.com, 2018, r-graph-gallery.com/42-colors-names.html.</span>
+<span id="cb6-193"><a href="#cb6-193" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-194"><a href="#cb6-194" aria-hidden="true" tabindex="-1"></a>“How to Use Aggregate Function in R.” GeeksforGeeks, GeeksforGeeks, 11 July 2025, www.geeksforgeeks.org/r-language/how-to-use-aggregate-function-in-r/.</span>
+<span id="cb6-195"><a href="#cb6-195" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-196"><a href="#cb6-196" aria-hidden="true" tabindex="-1"></a>Holtz, Yan. “Boxplot.” The R Graph Gallery, r-graph-gallery.com/boxplot.html. Accessed 6 Feb. 2026.</span>
+<span id="cb6-197"><a href="#cb6-197" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-198"><a href="#cb6-198" aria-hidden="true" tabindex="-1"></a>“How to Specify Fun Used in by( ) or Related Apply( ) Functions.” Stack Overflow, https://stackoverflow.com/#organization, 13 Oct. 2011, stackoverflow.com/questions/7756856/how-to-specify-fun-used-in-by-or-related-apply-functions.</span>
+<span id="cb6-199"><a href="#cb6-199" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-200"><a href="#cb6-200" aria-hidden="true" tabindex="-1"></a>https://github.com/tidyverse/dplyr/issues/4448</span>
+<span id="cb6-201"><a href="#cb6-201" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-202"><a href="#cb6-202" aria-hidden="true" tabindex="-1"></a>Li, Yiquan, and Zezhong Fan. “EDAV Fall 2021 Tues/Thurs Community Contributions.” Chapter 107 Base r vs.&nbsp;Ggplot2 Visualization, Github, 19 Oct. 2022, jtr13.github.io/cc21fall2/base-r-vs.-ggplot2-visualization.html. </span>
+<span id="cb6-203"><a href="#cb6-203" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-204"><a href="#cb6-204" aria-hidden="true" tabindex="-1"></a>“R Legend Placement in a Plot.” Stack Overflow, https://stackoverflow.com/#organization, 19 Nov. 2019, stackoverflow.com/questions/8929663/r-legend-placement-in-a-plot. </span>
+<span id="cb6-205"><a href="#cb6-205" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-206"><a href="#cb6-206" aria-hidden="true" tabindex="-1"></a>Skilling, Tom. “Is a Humidity of Zero Percent Possible? | WGN-TV.” Is a Humidity of Zero Percent Possible, Chicago’s Very Own WGN9, 13 Sept. 2021, wgntv.com/weather/weather-blog/is-a-humidity-of-zero-percent-possible/. </span>
 </code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
