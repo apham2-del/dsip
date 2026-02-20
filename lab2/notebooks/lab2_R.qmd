@@ -1,0 +1,455 @@
+---
+title: "Lab 2 - Breast Cancer Subtyping"
+author: "Anna Pham"
+date: today
+format: 
+  html:
+    code-fold: true
+    code-summary: "Show Code"
+    code-tools: true
+    theme: sandstone
+    lightbox: true
+    # theme: yeti
+    embed-resources: true
+execute: 
+  warning: false
+  message: false
+---
+
+```{r setup, include=FALSE}
+here::i_am("notebooks/lab2_R.qmd")
+
+# source all functions from R/ folder
+for (fname in list.files(here::here("R"), pattern = "*.R")) {
+  source(here::here(file.path("R", fname)))
+}
+
+# path to data
+DATA_PATH <- here::here("data")
+
+# set seed
+set.seed(331)
+```
+
+# Exploratory Data Analysis
+
+In this analysis, the distribution of the raw data set of RNASeq gene expression values is examined. This data set is from breast cancer patients in The Cancer Genome Atlas Some information about the data set includes, each row correspond to a different breast cancer patient, column corresponds to a different gene, and (i,j) entry in the data corresponds to the expression of gene j for patient i. In total there are n=1043 patients and p=5000 genes. 
+
+To examine the overall gene expression values across all, the matrix was flattened into a vector and visualized using a histogram. The raw gene expression histogram shows a right-skewed distribution, with the vast majority of values near zero. There is a also a long tail extending to extremely large values. This heavy-tailed structure is a characteristic of RNASeq data, where a small subset of genes may be highly expressed compared to other genes that shows low expression levels. 
+
+To further assess variability across genes, the distribution of gene variances across breast cancer patients were examined. The variance histogram on the log-scale shows a lot of diversity within the genes. This supports the use of variance-filtering that will focus more closely on the analysis of the most informative genes.
+
+Lastly, plotting the distribution of expression values on a log-transformed scale reveals a much more symmetric and compressed distribution compared to the raw scale. The distribution is much more symmetric and there is no extreme compression near 0. In fact, this graph looks closer to a bell-shape unimodal model. The log transformation reduces the influence of extreme values and stabilizes variability across genes. It reduced skewness and makes variance more comparable across genes.
+
+It's important to note that in this analysis, because there are p=5000 genes, dimension reduction methods can be computationally expensive in high-dimensional settings. Instead, variance-filtering was applied prior to dimension reduction. 1000 genes were retained as the top genes with the largest variance across breast cancer patients. By retaining 1000 genes, this approach reduces computational burden while preserving the genes most likely to contribute to meaningful differences. Variance filtering is also common in gene expression analysis.
+
+
+```{r}
+library(ggplot2)
+library(patchwork)
+library(umap)
+library(cluster)
+library(mclust)
+library(dplyr)
+library(tidyverse)
+
+exprdf <- readr::read_csv(file.path(DATA_PATH, "tcga_brca_array_data_filtered.csv"))
+
+expr_mat <- as.matrix(exprdf[,-1])
+
+allvals <- as.vector(expr_mat)
+
+ggplot(data.frame(expression = allvals), aes(x=expression)) + 
+  geom_histogram(bins=50)
+
+ggplot(data.frame(expression = allvals), aes(x=expression)) + 
+  geom_histogram(bins=50) + 
+  scale_x_log10() +
+  labs(x="Expression (Log10)")
+
+genevar <- apply(expr_mat,2, var)
+
+ggplot(data.frame(variance = genevar), aes(x= variance)) +
+geom_histogram(bins=50) + 
+scale_x_log10() +
+theme_minimal() +
+labs(x = "Variance across Breast Cancer Patients", y="Count")
+
+```
+
+# Dimension Reduction
+Two dimension reduction methods were applied: Principal Component Analysis (PCA) and Uniform Manifold Approximation (UMAP). PCA aims to find a lower-dimensional (linear) projection of the data that captures as much of the variance in the data as possible. UMAP is a nonlinear dimension reduction method based on manifold learning and ideas from topological data analysis. 
+
+In this part of the analysis, PCA was implemented using prcomp and performed using centering and scaling, while UMAP was applied with n_components = 2, n_neighbors = 15, and min_dist = 0.1. PCA captures global linear variance structure while UMAP preserves local nonlinear neighborhood structure. It is often more effective at revealing cluster separation in high-dimensional data. Prior to dimension reduction, the top 1000 genes across breast cancer patients were retained to reduce computational burden while preserving informative features.
+
+When PCA was applied to the raw gene expression data, the resulting embedding showed broad spread and mild separation along PC1, but the structure appeared diffuse. Given the heavy-tailed distribution of raw expression values observed in the EDA, this is seemingly consistent with principal components being influenced by large-maginite genes. 
+
+Similarly, UMAP applied to the raw data produced a nonlinear embedding with elongated structure. The separation between groups was not sharply defined which might suggest that local neighborhood relationships may be distorted by extreme expression values.
+
+After applying the log transformation X˜ = log(X + 1), with X˜ as the log-transformed gene expression data, the dimension reduction results became more substantial and interpretable. PCA on the log-transformed data revealed clearer separation between patient groups, with more compact and distinguishable clusters along the first two principal components from its compression of large expression values and variance stability. 
+
+UMAP on the log-transformed data produced the most visually distinct structure due to its clear separation between two major clusters. Compared to raw embeddings, the log-transformed UMAP representation demonstrates improved neighborhood and cluster form.
+
+Visually speaking, the log-transformed UMAP shows stronger separation between groups than PCA on the same transformed data. Comparing raw and log-transformed data clearly shows log-transformed is much better for clarity between PCA and UMAP. The graph is supported by quantitative evidence from clustering, showing that UMAP clustering achieves higher silhouette scores for k=2 approximately 0.84 compared to PCA clustering, furthering supporting the stronger cluster separation with UMAP.
+
+Dimension reduction applied directly to raw data is highly problematic because of its highly skewed and heavy tailed distribution. Extreme values can take over variance and mess up distance relationships, making it less meaningful. This is why log-transformation is implemented because it helps mitigate the issue by compressing the data and stabilizing variance across genes.Z-score standardization would equalize variance across genes but it does not account for skewness in raw data. This is the reasoning for using log-transformation.Comparing raw and log-transformed graphs, the log-transformation clealy has better structure and clarity for PCA and UMAP. The raw graphs look distorted. The log-transformed shows denser and separated groups. 
+
+```{r}
+
+top1000 <- order(genevar, decreasing = TRUE)[1:1000]
+
+xraw <- expr_mat[, top1000]
+
+dim(xraw)
+
+pca_raw <- prcomp(xraw, center = TRUE, scale. = TRUE)
+scores_pca_raw <- as.data.frame(pca_raw$x)
+
+ggplot(scores_pca_raw, aes(x=PC1, y=PC2)) +
+  geom_point(alpha = 0.6, color ="indianred2") +
+  theme_minimal() +
+  labs(title= "PCA on Raw Gene Expression",
+       x = "PC1",
+       y= "PC2")
+
+xlog <- log(xraw +1)
+pca_log <- prcomp(xlog, center = TRUE, scale.= TRUE)
+scores_log_pca <- as.data.frame(pca_log$x[, 1:2])
+
+ggplot(scores_log_pca, aes(x=PC1, y=PC2))+
+  geom_point(alpha=0.5, color = "orchid2") +
+  theme_minimal() +
+  labs(title = "PCA on Log-Transformed Gene Expression", x = "PC1", y = "PC2")
+
+
+umap_raw <- umap::umap(
+  xraw,
+  n_components = 2,
+  n_neighbors = 15,
+  min_dist = 0.1
+)
+
+scores_raw_umap <- as.data.frame(umap_raw$layout)
+colnames(scores_raw_umap) <- paste0("UMAP", 1:ncol(umap_raw$layout))
+
+
+ggplot(scores_raw_umap, aes(x=UMAP1, y=UMAP2)) +
+  geom_point(alpha = 0.6, color = "salmon1") +
+  theme_minimal() +
+  labs(title = "UMAP on Raw Gene Expression",
+       x = "UMAP1",
+       y = "UMAP2")
+
+
+umap_log <- umap::umap(
+  xlog,
+  n_components = 2,
+  n_neighbors = 15,
+  min_dist = 0.1
+)
+
+scores_log_umap <- as.data.frame(umap_log$layout)
+colnames(scores_log_umap) <- paste0("UMAP", 1:ncol(umap_log$layout))
+
+ggplot(scores_log_umap, aes(x=UMAP1, y=UMAP2)) +
+  geom_point(alpha = 0.6, color = "skyblue2") +
+  theme_minimal() +
+  labs(title = "UMAP on Log-Transformed Gene Expression",
+       x = "UMAP1",
+       y = "UMAP2")
+
+# Extra Fun Stuff
+loadings <- as.data.frame(pca_log$rotation)
+head(loadings[, 1:5])
+summary(pca_log)$importance[, 1:10]
+
+```
+
+
+# Clustering
+
+Two clustering methods were applied to the log-transformed dimension reduced data which includes k-means clustering and hierarchical clustering using Ward's linkage. Clustering was performed separately on the PCA embedding and the UMSP computed from X˜ = log(X + 1). 
+
+K-means is a clustering method, which aims to find K clusters in the data that minimize the within-cluster variance. Hierarchical clustering is a clustering method that aims to build a nested hierarchy of clusters. Hierarchical clustering does not require a pre-specified number of clusters. 
+
+These two methods were chosen because they are standard clustering methods that minimize cluster variance and are commonly used in PCA or low-dimensional settings. Comparing both methods allows assessment of robustness. Clustering was perfomred after dimension reduction to avoid the curse of dimensionality and reduce noise. It was applied separately to PCA and UMAP computed from log-transformed data.
+
+For PCA clustering, the first 5 principal components were used as clustering input even though the graph displays only PC1 and PC2. The 5 components allows additional variance structure beyond 2D projection.
+
+In the UMAP clustering, 2 UMAP coordinates, UMAP1 and UMAP2 were used as constructed with n_components = 2. For each clustering method, cluster solutions were computed for k = 2,3,4,5 and were visualized on graphs using ggplot to examine structure.
+
+In the PCA cluster, k=2 shows more defined separation along PC1. As k increases, the clusters subdivide the existing structure. There is overlapping between clusters in the PC1 and PC2 projection. This might show weaker separation.
+
+UMAP clustering shows much more stronger separation. K=2 in k-means and hierarchical clustering shows a clear split. As k increases, the large cluster is subdivided while the compact cluster remains intact.
+
+Compared to PCA clustering, UMAP produces a more distinct and coherent cluster across k values.
+
+To quantitatively evaluate cluster quality, the average silhouette width for each method and k was computed.
+
+UMAP clustering achieved a high score than PCA clustering across all k values. The highest value was k=2, around 0.84 which indicated strong separation betwen clusters for UMAP. PCA scores were much lower like for k=2 which was approximately 0.43 and decreased as k values increases confirming that cluster separtion is strongest in UMAP, especially for k = 2.
+
+To determine the optimal number of clusters, a stability-based model using Adjusted Rand Index (ARI) as the metric was implemented.
+
+For each k, 80% of samples were randomly subsampled and clustering was performed on two independent subsamples. Cluster labels were then compared on overlapping samples and the ARI was given. This was repeated B=30 times. The results showed that k=2 had highest stability of 1.00, followed by k=4 of 0.80, then k = 3 and k = 5 showing that it's less stable. K = 2 is the most reproducible.
+
+After everything, k = 2 is the best estimate of breast cancer. It showed the strongest separation and highest quantitative support.
+```{r}
+
+# K-Means on Log-Transformed PCA
+
+Z <- pca_log$x[, 1:5]
+
+pca1 <- as.data.frame(pca_log$x[, 1:2])
+colnames(pca1) <- c("PC1", "PC2")
+
+plot_kmeans_pca <- function(k) {
+  set.seed(331)
+  km <- stats::kmeans(Z, centers = k)
+
+df <- pca1 |> dplyr::mutate(cluster = factor(km$cluster))
+
+ggplot(df, aes(PC1, PC2, color = cluster)) +
+  geom_point(alpha = 0.6, size = 1) +
+  theme_minimal() +
+  labs(title = paste0("K-Means(k=",k,") on Log-PCA"),
+       color = "Cluster")
+}
+
+p2 <- plot_kmeans_pca(2)
+p3 <- plot_kmeans_pca(3)
+p4 <- plot_kmeans_pca(4)
+p5 <- plot_kmeans_pca(5)
+(p2+p3) / (p4+p5)
+
+
+# Hierarchial Clustering on Log-Transformed PCA
+Z_pca <- pca_log$x[, 1:5]
+pca2 <- as.data.frame(pca_log$x[, 1:2])
+colnames(pca2) <- c("PC1", "PC2")
+hc_pca <- stats::hclust(dist(Z_pca), method = "ward.D2")
+
+plot_hc_pca <- function(k) {
+  cluster_assignments <- cutree(hc_pca, k = k)
+  
+df <- pca2 |> dplyr::mutate(cluster = factor(cluster_assignments))
+
+ggplot(df, aes(PC1, PC2, color = cluster)) +
+  geom_point(alpha = 0.6, size = 1) +
+  theme_minimal() +
+  labs(title = paste0("Hierarchical (Ward) (k=",k,") on Log-PCA"),
+       color = "Cluster")
+}
+
+h2 <- plot_hc_pca(2)
+h3 <- plot_hc_pca(3)
+h4 <- plot_hc_pca(4)
+h5 <- plot_hc_pca(5)
+(h2+h3) / (h4+h5)
+
+# K-means on Log-Transformed UMAP
+
+umap_coords <- umap_log$layout
+Z_Umap <- umap_coords[, 1:2, drop = FALSE]
+
+umap1 <- as.data.frame(umap_coords)
+colnames(umap1) <- c("UMAP1", "UMAP2")
+
+plot_kmeans_umap <- function(k) {
+  set.seed(331)
+  km <- stats::kmeans(Z_Umap, centers = k)
+
+df <- umap1 |> dplyr::mutate(cluster = factor(km$cluster))
+
+ggplot(df, aes(UMAP1, UMAP2, color = cluster)) +
+  geom_point(alpha = 0.6, size = 1) +
+  theme_minimal() +
+  labs(title = paste0("K-Means(k=",k,") on Log-UMAP"),
+       color = "Cluster")
+}
+
+u2 <- plot_kmeans_umap(2)
+u3 <- plot_kmeans_umap(3)
+u4 <- plot_kmeans_umap(4)
+u5 <- plot_kmeans_umap(5)
+(u2+u3) / (u4+u5)
+
+# Hierarchical on Log-Transformed UMAP
+
+umap_coords <- umap_log$layout
+Z_Umap <- umap_coords[,1:2, drop = FALSE]
+
+umap2 <- as.data.frame(umap_coords)
+colnames(umap2) <- c("UMAP1", "UMAP2")
+hc_umap <- stats::hclust(dist(Z_Umap), method = "ward.D2")
+
+plot_hc_umap <- function(k) {
+  cluster_assignments <- cutree(hc_umap, k = k)
+  
+df <- umap2 |> dplyr::mutate(cluster = factor(cluster_assignments))
+
+ggplot(df, aes(UMAP1, UMAP2, color = cluster)) +
+  geom_point(alpha = 0.6, size = 1) +
+  theme_minimal() +
+  labs(title = paste0("Hierarchical (Ward) (k=",k,") on Log-UMAP"),
+       color = "Cluster")
+}
+
+hu2 <- plot_hc_umap(2)
+hu3 <- plot_hc_umap(3)
+hu4 <- plot_hc_umap(4)
+hu5 <- plot_hc_umap(5)
+(hu2+hu3) / (hu4+hu5)
+
+compute_sil <- function(Z, clusters){
+  sil <- cluster::silhouette(clusters, dist(Z))
+mean(sil[,3])
+}
+
+results <- data.frame()
+
+for (k in 2:5) {
+  
+  # PCA
+  Z_pca <- pca_log$x[, 1:5]
+  
+  km_pca <- kmeans(Z_pca, centers = k)
+  sil_km_pca <- compute_sil(Z_pca, km_pca$cluster)
+  
+  hc_pca <- hclust(dist(Z_pca), method="ward.D2")
+  cl_pca <- cutree(hc_pca, k=k)
+  sil_hc_pca <- compute_sil(Z_pca, cl_pca)
+  
+  # UMAP
+  Z_umap <- umap_log$layout
+  
+  km_umap <- kmeans(Z_umap, centers = k)
+  sil_km_umap <- compute_sil(Z_umap, km_umap$cluster)
+  
+  hc_umap <- hclust(dist(Z_umap), method="ward.D2")
+  cl_umap <- cutree(hc_umap, k=k)
+  sil_hc_umap <- compute_sil(Z_umap, cl_umap)
+  
+  results <- rbind(results,
+                   data.frame(
+                     k = k,
+                     PCA_kmeans = sil_km_pca,
+                     PCA_hier = sil_hc_pca,
+                     UMAP_kmeans = sil_km_umap,
+                     UMAP_hier = sil_hc_umap
+                   ))
+}
+
+results
+
+compute_stability <- function(Z, k, B = 30, prop = 0.8) {
+  
+  n <- nrow(Z)
+  ari_vals <- c()
+  
+  for (b in 1:B) {
+    
+    idx1 <- sample(1:n, size = floor(prop*n))
+    idx2 <- sample(1:n, size = floor(prop*n))
+    
+    km1 <- kmeans(Z[idx1, ], centers = k)
+    km2 <- kmeans(Z[idx2, ], centers = k)
+    
+    overlap <- intersect(idx1, idx2)
+    
+    if (length(overlap) > 10) {
+      cl1 <- km1$cluster[match(overlap, idx1)]
+      cl2 <- km2$cluster[match(overlap, idx2)]
+      ari_vals <- c(ari_vals,
+                    adjustedRandIndex(cl1, cl2))
+    }
+  }
+  
+  mean(ari_vals)
+}
+
+Z_Umap <- umap_log$layout
+
+stability_results <- data.frame()
+
+for (k in 2:5) {
+  
+  stab <- compute_stability(Z_Umap, k)
+  
+  stability_results <- rbind(stability_results,
+                             data.frame(k = k,
+                                        stability = stab))
+}
+
+stability_results
+```
+
+```{r}
+
+best_k <- 2
+second_k <- 4
+
+Z_umap <- umap_log$layout
+
+set.seed(331)
+km_best <- stats::kmeans(Z_umap, centers = best_k)
+set.seed(331)
+km_second <- stats::kmeans(Z_umap, centers = second_k)
+
+labels_out <- data.frame(
+  k2 = km_best$cluster,
+  k4 = km_second$cluster
+)
+
+stopifnot(nrow(labels_out) == nrow(exprdf))
+stopifnot(ncol(labels_out) == 2)
+
+write.csv(
+  labels_out,
+  file = here::here("results", "best_subtype_labels.csv"),
+  row.names = FALSE
+)
+
+labels_out[1:10, ]
+
+```
+
+# References
+
+“Basic UMAP Parameters.” Basic UMAP Parameters - Umap 0.5.8 Documentation, umap-learn.readthedocs.io/en/latest/parameters.html. Accessed 18 Feb. 2026.
+
+“Dimensionality Reduction with Umap.” R, search.r-project.org/CRAN/refmans/uwot/html/umap.html. Accessed 18 Feb. 2026. 
+
+https://tiffanymtang.github.io/dsip-s26/course_materials/unsupervised_learning/notebooks/unsupervised_learning.html#principal-components-analysis-pca
+
+Tang, Ming Tommy. “Understanding Prcomp() Center and Scale Arguments for Single-Cell RNA-Seq PCA.” Chatomics, Chatomics, 31 Oct. 2025, divingintogeneticsandgenomics.com/post/understanding-prcomp-center-scale-arguments/.
+
+“The Cancer Genome Atlas Program (TCGA).” NCI, www.cancer.gov/ccg/research/genome-sequencing/tcga. Accessed 20 Feb. 2026. 
+
+“Uniform Manifold Approximation and Projection in R.” Uniform Manifold Approximation and Projection in R, cran.r-project.org/web/packages/umap/vignettes/umap.html. Accessed 19 Feb. 2026. 
+
+“UMAP Visualization - RNA-Seq.” UMAP Visualization - RNA-Seq, refine.bio examples, Oct. 2020, alexslemonade.github.io/refinebio-examples/03-rnaseq/dimension-reduction_rnaseq_02_umap.html.
+
+Verma, Akanksha. “Hierarchical Clustering. Why Does K-Means Clustering Fail And… | by Akanksha Verma, MSC Data Science | Medium.” Hierarchical Clustering, 2025, medium.com/@akankshaverma136/hierarchical-clustering-722e7a2a5487. 
+
+
+
+
+Example code to save best breast cancer subtyping clustering results to a file:
+
+```{r}
+RESULTS_PATH <- here::here("results")
+
+# save best clustering results
+predicted_subtypes <- tibble::tibble(
+  best_guess = sample(1:2, 1043, replace = TRUE),  # e.g., if you think k = 2 is the best
+  second_guess = sample(1:3, 1043, replace = TRUE),  # e.g., if you think k = 3 is the second best
+)
+if (!dir.exists(RESULTS_PATH)) {
+  dir.create(RESULTS_PATH)
+}
+write.csv(
+  predicted_subtypes, 
+  here::here(file.path(RESULTS_PATH, "best_subtype_labels.csv")), 
+  row.names = FALSE
+)
+```
