@@ -5,9 +5,10 @@
 .RDataTmp
 
 renv/
-renv.lock
+
 
 lab1/data/
+lab2/data/
 cancer_mortality
 
 
