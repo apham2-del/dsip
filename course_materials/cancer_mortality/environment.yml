@@ -1,0 +1,11 @@
+name: dsip_cancer2
+channels:
+  - defaults
+dependencies:
+  - seaborn
+  - plotnine
+  - pandas
+  - scikit-learn
+  - jupyterlab
+  - matplotlib
+prefix: /opt/miniconda3/envs/dsip_cancer2
