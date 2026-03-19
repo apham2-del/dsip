@@ -1,0 +1,14 @@
+name: dsip_linguistics
+channels:
+  - defaults
+dependencies:
+  - python=3.10
+  - pandas
+  - numpy
+  - matplotlib
+  - cartopy
+  - seaborn
+  - geopandas
+  - umap-learn
+  - jupyterlab
+prefix: /opt/miniconda3/envs/dsip_linguistics

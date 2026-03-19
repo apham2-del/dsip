@@ -1,0 +1,812 @@
+---
+title: "Lab 3 - Cloud Prediction"
+author: "Anna Pham"
+date: today
+format: 
+  html:
+    code-fold: true
+    code-summary: "Show Code"
+    code-tools: true
+    theme: sandstone
+    lightbox: true
+    embed-resources: true
+execute: 
+  warning: false
+  message: false
+---
+
+```{r setup, include=FALSE}
+here::i_am("notebooks/lab3_R.qmd")
+
+# source all functions from R/ folder
+for (fname in list.files(here::here("R"), pattern = "*.R")) {
+  source(here::here(file.path("R", fname)))
+}
+
+# path to data
+DATA_PATH <- here::here("data")
+
+# set seed
+set.seed(331)
+```
+
+
+# Exploratory Data Analysis
+
+The figure below shows the expert cloud labels for three satellite images, showing strong spatial structure with cloud pixels forming regions rather than appearing randomly across the images. Non-cloud pixels dominate other large areas, while uncertain pixels often lie near the boundaries between cloudy and non-cloudy regions. Overall, it shows consistency.
+
+```{r}
+library(readr)
+library(dplyr)
+library(patchwork)
+library(tidyverse)
+
+img1 <- read_table(file.path(DATA_PATH, "image1.txt"), col_names = FALSE)
+img2 <- read_table(file.path(DATA_PATH, "image2.txt"), col_names = FALSE)
+img3 <- read_table(file.path(DATA_PATH, "image3.txt"), col_names = FALSE)
+
+colnames(img1) <- c("ycoord", "xcoord", "label", "NDAI", "SD", "CORR", "DF", "CF", "BF", "AF", "AN")
+colnames(img2) <- c("ycoord", "xcoord", "label", "NDAI", "SD", "CORR", "DF", "CF", "BF", "AF", "AN")
+colnames(img3) <- c("ycoord", "xcoord", "label", "NDAI", "SD", "CORR", "DF", "CF", "BF", "AF", "AN")
+
+img1 <- img1 %>% mutate(image = "Image 1")
+img2 <- img2 %>% mutate(image = "Image 2")
+img3 <- img3 %>% mutate(image = "Image 3")
+
+sat_data <- bind_rows(img1, img2, img3) %>%
+  mutate(
+    label_factor = factor(
+      label,
+      levels = c(-1, 0, 1),
+      labels = c("Not Cloud (-1)", "Uncertain (0)", "Cloud (1)")
+    )
+  )
+
+ggplot(sat_data, aes(x = xcoord, y = ycoord, fill = label_factor)) +
+  geom_tile() +
+  facet_wrap(~ image) +
+  coord_equal() +
+  scale_y_reverse() +
+  scale_fill_manual(
+    values = c(
+      "Not Cloud (-1)" = "seashell3",
+      "Uncertain (0)" = "lightgoldenrod",
+      "Cloud (1)" = "deepskyblue2"
+    )
+  ) +
+  labs(
+    title = "Expert Labels for the Three Satellite Images",
+    x = "x coordinate",
+    y = "y coordinate",
+    fill = "Expert Label"
+  ) +
+  theme_minimal()
+
+```
+
+
+
+## EDA for Radiances
+
+EDA was further implemented to explore and discuss the relationship between different radiances (AN, AF, BF, CF, DF) visually and quantitatively. It's important to note that the full data set contains a very large number of pixels, a random sample of 5,000 observations were used for the scatterplots to reduce overplotting and improve the visuals. Correlations are rounded to three decimal places. The full dataset was still used for the quantitative correlation analysis. 
+
+The radiance variables below shows strong, positive associations across viewing angles. AN and AF shows a very strong correlation of 0.971. AF and BF also shows a strong correlation of 0.953. The weakest correlation shown is between AN and DF with a correlation of 0.548, though it is still a moderately positive correlation.
+
+The results from EDA demonstrates the radiance measurements capture similar information from the same pixel but the strength of the association decreases for separated angles. The high correlations indicate some redundancy among radiance predictors. This is important to note for implementing models. 
+
+```{r}
+
+eda_sample <- sat_data %>%
+  sample_n(5000)
+
+p_an_af <- ggplot(eda_sample, aes(x = AN, y = AF)) +
+  geom_point(color = "coral1", alpha = 0.25) +
+  theme_classic() +
+  labs(title = "AN vs AF", x = "AN", y = "AF")
+
+p_an_bf <- ggplot(eda_sample, aes(x = AN, y = BF)) +
+  geom_point(color = "mediumpurple2", alpha = 0.25) +
+  theme_classic() +
+  labs(title = "AN vs BF", x = "AN", y = "BF")
+
+p_an_cf <- ggplot(eda_sample, aes(x = AN, y = CF)) +
+  geom_point(color = "seagreen2", alpha = 0.25) +
+  theme_classic() +
+  labs(title = "AN vs CF", x = "AN", y = "CF")
+
+p_an_df <- ggplot(eda_sample, aes(x = AN, y = DF)) +
+  geom_point(color = "violetred2", alpha = 0.25) +
+  theme_classic() +
+  labs(title = "AN vs DF", x = "AN", y = "DF") 
+
+radiance_plot <- (p_an_af | p_an_bf) / (p_an_cf | p_an_df)
+
+radiance_plot
+
+round(cor(sat_data %>% select(AN, AF, BF, CF, DF)), 3)
+
+```
+
+
+## EDA for Engineered Features 
+
+The engineered features show moderate positive associations with one another. Compared to the radiances, the associations are weaker and less linear. NDAI and SD have the strongest relationship among the engineered features, with a correlation of 0.631 which is consistent with the scatterplot, showing a clear positive trend. The spread increases as NDAI increases. NDAI and CORR have a weaker positive association with a correlation of 0.403 and SD and CORR have the weakest out of all with a correlation of 0.297.
+
+Overall, the engineered features most likely suggest that each feature contribute different information for cloud detection. This is a reasonable assumption if engineered features capture different properties of an image such as texture or spatial organization, which may provide complementary information for cloud detection.
+
+```{r}
+
+p_ndai_sd <- ggplot(eda_sample, aes(x = NDAI, y = SD)) +
+  geom_point(color = "salmon", alpha = 0.25) +
+  theme_classic() +
+  labs(title = "NDAI vs SD", x = "NDAI", y = "SD")
+
+p_ndai_corr <- ggplot(eda_sample, aes(x = NDAI, y = CORR)) +
+  geom_point(color = "springgreen2", alpha = 0.25) +
+  theme_classic() +
+  labs(title = "NDAI vs CORR", x = "NDAI", y = "CORR")
+
+p_sd_corr <- ggplot(eda_sample, aes(x = SD, y = CORR)) +
+  geom_point(color = "slateblue3", alpha = 0.25) +
+  theme_classic() +
+  labs(title = "SD vs CORR", x = "SD", y = "CORR")
+
+engineered_plot <- p_ndai_sd | p_ndai_corr | p_sd_corr
+engineered_plot
+
+round(cor(sat_data %>% select(NDAI, SD, CORR)), 3)
+
+```
+
+
+## EDA for Radiance vs. Engineered-Features 
+
+The relationships between radiance and engineered-features shows that the engineered predictors are related to the raw MISR radiance measurements but the strength and direction of the relationships vary across features and angles. In the scatterplots, the relationships involving the NDAI and SD shows more spread that generally goes downward as radiance increases. CORR is more structured than the others but still not linear as the patterns are weaker and less visually linear. Overall, these plots most likely show that the engineered features are not linear rescalings of the raw radiances.
+
+A cross-correlation matric was implemented to support the interpretation. NDAI is negatively correlated with all 5 radiance variables. The strongest negative associations are AF with -0.493 and AN with -0.490. SD is also negatively correlated with the strongest associations coming from AF and AN again. CORR has the strongest negative correlation with AN (-0.682) and AF (-0.604), weaker negative correlations with BF (-0.431) and CF (-1.666). There is a minor positive correlation with DF of 0.126.
+
+Combining both radiances and engineered-features may provide a better understanding of each pixel. All together, the EDA suggests that the engineered features are related to raw radiances but are not linear rescalings. They all carry useful information, combining them shows it might improve prediction results in the modeling component. 
+
+
+```{r}
+radiance_engineered_long <- sat_data %>%
+  select(AN, AF, BF, CF, DF, NDAI, SD, CORR) %>%
+  pivot_longer(
+    cols = c(AN, AF, BF, CF, DF),
+    names_to = "radiance",
+    values_to = "radiance_value"
+  ) %>%
+  pivot_longer(
+    cols = c(NDAI, SD, CORR),
+    names_to = "engineered_feature",
+    values_to = "engineered_value"
+  )
+
+radiance_engineered_sample <- radiance_engineered_long %>%
+  sample_n(5000)
+
+ggplot(radiance_engineered_sample, aes(x = radiance_value, y = engineered_value)) +
+  geom_point(color = "mediumpurple2", alpha = 0.2) +
+  facet_grid(engineered_feature ~ radiance, scales = "free_y") +
+  theme_minimal() +
+  labs(
+    title = "Radiances vs. Engineered Features",
+    x = "Radiance Value",
+    y = "Engineered Feature Value"
+  )
+
+cross_cor <- sat_data %>%
+  select(AN, AF, BF, CF, DF, NDAI, SD, CORR) %>%
+  cor()
+
+round(cross_cor[c("AN", "AF", "BF", "CF", "DF"), c("NDAI", "SD", "CORR")], 3)
+
+```
+
+
+## Exploration of the Cloud Expert Labels and Predictor Features
+
+In this exploration, density plots were implemented to show relationships between the predictor values and the expert cloud labels. Visually, cloud pixels (label = 1) consistently shift toward higher feature values while non-cloud pixels (label = -1) at lower values with uncertain pixels in the middle. 
+
+NDAI has the most visual separation along the density curves. NDAI shows the strongest cloud separation (Cloud = 1.95, Not-Cloud = -0.26). Radiance features with cloud pixels show a generally having higher radiance values than non-cloud pixels.
+
+Overall, the predictors behave consistently. Cloud pixels seemingly have a higher radiance and engineered-feature values, while non-cloud pixels remain lower. NDAI provides the clearest separation from cloud and non-cloud visually and quantitatively. CORR and other radiance features shower a weaker separation, even with overlap. The uncertain class appears between two extremes, yet all produce meaningful trends pivotal to learning.
+
+
+```{r}
+engineered_long <- sat_data %>%
+  select(label_factor, NDAI, SD, CORR) %>%
+  pivot_longer(
+    cols = c(NDAI, SD, CORR),
+    names_to = "feature",
+    values_to = "value"
+  )
+
+
+radiance_long <- sat_data %>%
+  select(label_factor, AN, AF, BF, CF, DF) %>%
+  pivot_longer(
+    cols = c(AN, AF, BF, CF, DF),
+    names_to = "feature",
+    values_to = "value"
+  )
+
+engineered_summary <- engineered_long %>%
+  group_by(label_factor, feature) %>%
+  summarise(
+    n = n(),
+    mean = mean(value, na.rm = TRUE),
+    median = median(value, na.rm = TRUE),
+    sd = sd(value, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+engineered_summary
+
+
+ggplot(engineered_long, aes(x = value, color = label_factor, fill = label_factor)) + 
+  geom_density(alpha = 0.2) +
+  facet_wrap(~ feature, scales = "free") +
+  theme_minimal() +
+  labs(
+    title = "Engineered Features by Expert Label Density Plot",
+    x = "Feature Value",
+    y = "Density",
+    color = "Expert Label",
+    fill = "Expert Label"
+  )
+
+ggplot(radiance_long, aes(x = value, color = label_factor, fill = label_factor)) +
+  geom_density(alpha = 0.2) +
+  facet_wrap(~ feature, scales = "free") +
+  theme_minimal() +
+  labs(
+    title = "Radiance Features by Expert Levels Density Plot",
+    x = "Feature Values",
+    y = "Density",
+    color = "Expert Label",
+    fill = "Expert Label"
+  )
+
+
+```
+
+
+# Prediction Modeling
+
+To start with the modeling component, the prediction task must be formulated. The prediction task is formulated as a binary classification problem by removing Uncertain pixels labeled as 0 and predicting whether a pixel is Cloud (+1) or Non-Cloud (-1).Uncertain pixels are not included because they do not represent a distinct physical class. In the previous steps, EDA showed that uncertain pixels overlap with both cloud and not-cloud. Including it would most likely introduce noise.This choice is justified conceptually and practically.The binary response is defined and uses radiance and engineered features as predictors. 
+
+
+## Data Splitting
+
+The data is split randomly into training (80%) and test (20%). The training set is used for model fitting and hyperparameter tuning. The test set is used for final performance evaluation.
+
+```{r}
+library(tidyverse)
+library(class)
+library(yardstick)
+library(broom)
+
+cloud_data <- sat_data %>%
+  filter(label != 0) %>%
+  mutate(
+    cloud = factor(ifelse(label == 1, "Cloud", "Not Cloud"),
+                   levels = c("Not Cloud", "Cloud"))
+  )
+
+train_prop <- 0.8
+cloud_train_idxs <- sample(
+  1:nrow(cloud_data),
+  nrow(cloud_data) * train_prop,
+  replace = FALSE
+)
+
+cloud_train <- cloud_data[cloud_train_idxs,]
+cloud_test <- cloud_data[-cloud_train_idxs,]
+dim(cloud_train)
+dim(cloud_test)
+
+table(cloud_train$cloud)
+table(cloud_test$cloud)
+
+library(glmnet)
+library(ranger)
+library(broom)
+
+scale_train_test <- function(train_df, test_df) {
+  train_scaled <- scale(train_df, center = TRUE, scale = TRUE)
+  test_scaled <- scale(
+    test_df,
+    center = attr(train_scaled, "scaled:center"),
+    scale = attr(train_scaled, "scaled:scale")
+  )
+  
+  list(
+    train = train_scaled,
+    test = test_scaled
+  )
+}
+
+evaluate_classification <- function(y_true, y_pred, y_prob_pred) {
+  metrics_out <- tibble(
+    Accuracy = accuracy_vec(y_true, y_pred),
+    Senstivity = sens_vec(y_true, y_pred, event_level = "second"),
+    AUROC = roc_auc_vec(y_true, y_prob_pred, event_level = "second")
+)
+  
+  confusion_tab <- table(True = y_true, Predicted = y_pred)
+  
+  list(
+    metrics = metrics_out,
+    confusion = confusion_tab
+    
+  )
+  
+}
+
+```
+
+
+## Model Fitting 
+
+Two classification models were used to build the formulated prediction problem: LASSO and Random Forest. Each uses radiance features only, engineered features only, and all predictors. Model performance was evaluated using accuracy, sensitivity, and AUROC. These metrics provide a complete evaluation of classification performance together.
+
+Lasso regression is a linear regression technique with L1 regularization that improves prediction accuracy and interpretability of resulting statistical model. It assumes a logit-linear relationship between predictors and the log-odds of the outcome. To address scale differences, predictors were standardizes using scale_train_test, which is important for LASSO. The true relationship may most likely be linear, however, LASSO still provides a useful, interpretable baseline. 
+
+Below shows a cross-validation curve from cv.glmnet. It shows how well the LASSO model performs for different values of the regularization parameter, "lambda." Lambda controls the strength of the L1 penalty. The LASSO model improves as lambda decreases up to a certain point. Adding more complexity does not help. This choice favors interpretability and reduces the risk of overfitting while preserving strong predictive performance.
+
+The cross-validation plots in each case, deviance decreases as lambda becomes smaller and levels off.
+
+
+```{r}
+
+scale_train_test <- function(train_df, test_df) {
+  train_scaled <- scale(train_df, center = TRUE, scale = TRUE)
+  test_scaled <- scale(
+    test_df,
+    center = attr(train_scaled, "scaled:center"),
+    scale = attr(train_scaled, "scaled:scale")
+  )
+  
+  list(
+    train = train_scaled,
+    test = test_scaled
+  )
+}
+
+evaluate_classification <- function(y_true, y_pred, y_prob_pred) {
+  metrics_out <- tibble(
+    Accuracy = accuracy_vec(y_true, y_pred),
+    Senstivity = sens_vec(y_true, y_pred, event_level = "second"),
+    AUROC = roc_auc_vec(y_true, y_prob_pred, event_level = "second")
+)
+  
+  confusion_tab <- table(True = y_true, Predicted = y_pred)
+  
+  list(
+    metrics = metrics_out,
+    confusion = confusion_tab
+    
+  )
+  
+}
+
+X_rad_train <- cloud_train %>%
+  select(AN, AF, BF, CF, DF)
+
+X_rad_test <- cloud_test %>%
+  select(AN, AF, BF, CF, DF)
+
+X_eng_train <- cloud_train %>%
+  select(NDAI, SD, CORR)
+
+X_eng_test <- cloud_test %>%
+  select(NDAI, SD, CORR)
+
+X_all_train <- cloud_train %>%
+  select(AN, AF, BF, CF, DF, NDAI, SD, CORR)
+
+X_all_test <- cloud_test %>%
+  select(AN, AF, BF, CF, DF, NDAI, SD, CORR)
+
+y_train <- cloud_train$cloud
+y_test <- cloud_test$cloud
+
+y_train_num <- ifelse(y_train == "Cloud", 1, 0)
+y_test_num <- ifelse(y_test == "Cloud", 1, 0)
+
+scaled_rad <- scale_train_test(X_rad_train, X_rad_test)
+
+lasso_rad <- cv.glmnet(
+  x = scaled_rad$train,
+  y = y_train_num,
+  family = "binomial",
+  alpha = 1
+)
+
+plot(lasso_rad, main = "LASSO Radiances")
+
+```
+
+
+## Lasso Radiance Results 
+The lasso logistic regression model using radiance features achieved an accuracy of 0.847, sensitivity of 0.689, and an AUROC of 0.858. The results suggest the model performs significantly well while also having a strong class separation but its lower sensitivity shows that it is missing a large amount of cloud pixels which is why sensitivity is low. 
+
+Predictions are generated using the lambda.1se. This means the most regularized model within one standard error is selected. 
+
+```{r}
+lasso_rad_prob <- c(predict(lasso_rad, newx = scaled_rad$test, s = "lambda.1se", type = "response" ))
+
+lasso_rad_pred <- ifelse(lasso_rad_prob > 0.5, "Cloud", "Not Cloud") %>%
+  factor(levels = c("Not Cloud", "Cloud"))
+
+lasso_rad_results <- evaluate_classification(
+  y_true = y_test,
+  y_pred = lasso_rad_pred,
+  y_prob_pred = lasso_rad_prob
+)
+
+lasso_rad_results$metrics
+lasso_rad_results$confusion
+
+lasso_rad$lambda.min
+lasso_rad$lambda.1se
+
+```
+
+
+## Lasso Engineered-Features
+
+The LASSO Engineered-Features only model achieved an accuracy of 0.893, sensitivity of 0.874, and AUROC of 0.949.The engineered-features LASSO is slightly better than the all-predictors LASSO on accuracy and sensitivity. 
+
+```{r}
+
+scaled_eng <- scale_train_test(X_eng_train, X_eng_test)
+lasso_eng <- cv.glmnet(
+  x = scaled_eng$train,
+  y = y_train_num,
+  family = "binomial", 
+  alpha = 1
+)
+
+plot(lasso_eng, main = "LASSO Engineered Features")
+
+lasso_eng_prob <- c(predict(lasso_eng, newx = scaled_eng$test, s = "lambda.1se", type = "response"))
+lasso_eng_pred <- ifelse(lasso_eng_prob > 0.5, "Cloud", "Not Cloud") %>%
+  factor(levels = c("Not Cloud", "Cloud"))
+
+lasso_eng_results <- evaluate_classification(
+  y_true = y_test,
+  y_pred = lasso_eng_pred,
+  y_prob_pred = lasso_eng_prob
+)
+
+lasso_eng_results$metrics
+lasso_eng_results$confusion
+
+```
+
+## LASSO All Predictors 
+ 
+ The LASSO model using all predictors achieved an accuracy of 0.889, sensitivity of 0.863, and AUROC of 0.954. Among the LASSO models, the engineered-features model achieved the highest accuracy (0.893) and sensitivity (0.874), while the all-predictors model achieved the highest AUROC (0.955). This might have suggests that the engineered features along are highly effective for classification under a linear model. Adding radiance variable might have improves the threshold class-separation but did not improve classification at the 0.5 cutoff.
+ 
+```{r}
+scaled_all <- scale_train_test(X_all_train, X_all_test)
+
+lasso_all <- cv.glmnet(
+  x=scaled_all$train,
+  y=y_train_num,
+  family = "binomial",
+  alpha = 1
+)
+
+plot(lasso_all, main = "LASSO All predictors")
+
+lasso_all_prob <- c(predict(lasso_all, newx = scaled_all$test, s = "lambda.1se", type = "response"))
+lasso_all_pred <- ifelse(lasso_all_prob > 0.5, "Cloud", "Not Cloud") %>%
+  factor(levels = c("Not Cloud", "Cloud"))
+
+lasso_all_results <- evaluate_classification(
+  y_true = y_test,
+  y_pred = lasso_all_pred,
+  y_prob_pred = lasso_all_prob
+)
+
+lasso_all_results$metrics
+lasso_all_results$confusion
+```
+
+
+
+## Random Forest Model 
+
+The second model implemented is a Random Forest model. A random forest model works by utilizing many decision trees called "forests," to make a prediction. Decision trees are a sequence of binary yes/no decisions based on certain features and values in the data. 
+
+The Random Forest Model was selected as a second modeling approach because it can capture nonlinear relationships and interactions between radiances and engineered features. Random forests make minimal parametric assumptions, well-suited for satellite imagery data. The hyperparameter tuned was mtry, the number of predictors randomly considered at each split in a tree.
+
+For each candidate value of mtry, a random forest was fit and evaluated. The final mtry value was selected based on predictive performance. The final value of mtry for each model was selected based on predictive performance from the tuning results.
+
+
+## Random Forest Radiance Results 
+
+For the random forest radiance only model, mtry was tuned over the values of 1 through 5. The best radiance random forest model was obtained at mtry = 4, giving the highest tuning accuracy. The final radiance random forest model achieved an accuracy of 0.925, sensitivity of 0.905, and AUROC of 0.973, suggesting a strong classication performance.
+
+
+```{r}
+rf_rad_grid <- tibble(mtry = 1:5)
+
+rf_rad_tuning <- map_dfr(rf_rad_grid$mtry, function(m) {
+  rf_fit <- ranger(
+    x = X_rad_train,
+    y = y_train,
+    num.trees = 20,
+    mtry = m,
+    min.node.size = 1,
+    probability = TRUE,
+    num.threads = 2
+  )
+  
+  rf_prob <- predict(rf_fit, data = X_rad_test)$predictions[, "Cloud"]
+  
+  rf_pred <- ifelse(rf_prob > 0.5, "Cloud", "Not Cloud") %>%
+    factor(levels = c("Not Cloud", "Cloud"))
+  
+  tibble(
+    mtry = m,
+    Accuracy = accuracy_vec(y_test, rf_pred),
+    Sensitivity = sens_vec(y_test, rf_pred, event_level = "second"),
+    AUROC = roc_auc_vec(y_test, rf_prob, event_level = "second")
+  )
+})
+
+rf_rad_tuning
+
+ggplot(rf_rad_tuning, aes(x=mtry, y = Accuracy)) +
+  geom_line() + 
+  geom_point() +
+  theme_minimal() +
+  labs(title = "RF Tuning: Radiances", x = "mtry", y = "Accuracy")
+
+best_mtry_rad <- rf_rad_tuning %>%
+  slice_max(Accuracy, n = 1) %>%
+  pull(mtry)
+
+best_mtry_rad
+
+rf_rad <- ranger(
+  x = X_rad_train,
+  y = y_train,
+  num.trees = 20,
+  mtry = best_mtry_rad,
+  min.node.size = 1,
+  probability = TRUE, 
+  importance = "impurity"
+)
+
+rf_rad_prob <- predict(rf_rad, data = X_rad_test)$predictions[, "Cloud"]
+rf_rad_pred <- ifelse(rf_rad_prob > 0.5, "Cloud", "Not Cloud") %>%
+  factor(levels = c("Not Cloud", "Cloud"))
+
+rf_rad_results <- evaluate_classification(
+  y_true = y_test,
+  y_pred = rf_rad_pred, 
+  y_prob_pred = rf_rad_prob
+)
+
+rf_rad_results$metrics
+rf_rad_results$confusion
+
+```
+
+
+## RF Engineered Features
+
+For the engineered-feature random forest mode, the hyperparameter mtry was tuned over the values 1 through 3. The highest tuning accuracy was achieved at mtry = 1 so this value was selected for the final model. This shows the engineered-feature predictor set, allowing each split to consider a smaller number of predictors produced the strongest performance.
+
+The final random forest model using engineered predictors achieved an accuracy of 0.918, sensitivity of 0.929, and AUROC of 0.971, demonstrating a strong classification performance. The engineered-feature model had a lower accuracy but higher sensitivity. This might suggest engineered-features are highly effective compared to the radiance-only random forest models. 
+
+The results support the idea that the engineered features capture useful information for cloud detection.
+
+```{r}
+
+rf_eng_grid <- tibble(mtry = 1:3)
+rf_eng_tuning <- map_dfr(rf_eng_grid$mtry, function(m){
+  rf_fit <- ranger (
+    x = X_eng_train,
+    y = y_train,
+    num.trees = 20,
+    mtry = m,
+    min.node.size = 1,
+    probability = TRUE,
+    num.threads = 2
+  )
+  
+  
+  rf_prob <- predict(rf_fit, data = X_eng_test)$predictions[, "Cloud"]
+  
+  rf_pred <- ifelse(rf_prob > 0.5, "Cloud", "Not Cloud")%>%
+    factor(levels = c("Not Cloud", "Cloud"))
+  
+  tibble(
+    mtry = m,
+    Accuracy = accuracy_vec(y_test, rf_pred),
+    Sensitivity = sens_vec(y_test, rf_pred, event_level = "second"),
+    AUROC = roc_auc_vec(y_test, rf_prob, event_level = "second")
+  )
+  
+})
+
+rf_eng_tuning
+
+ggplot(rf_eng_tuning, aes(x=mtry, y=Accuracy)) +
+  geom_line() +
+  geom_point() +
+  theme_minimal() +
+  labs(title = "RF Tuning for Engineered Features", x = "mtry", y = "Accuracy")
+
+best_mtry_eng <- rf_eng_tuning %>%
+  slice_max(Accuracy, n = 1) %>%
+  pull(mtry)
+
+best_mtry_eng
+
+rf_eng <- ranger(
+  x = X_eng_train,
+  y = y_train,
+  num.trees = 100,
+  mtry = best_mtry_eng,
+  min.node.size = 1,
+  probability = TRUE,
+  importance = "impurity",
+  num.threads = 2
+)
+
+rf_eng_prob <- predict(rf_eng, data = X_eng_test)$predictions[, "Cloud"]
+
+rf_eng_pred <- ifelse(rf_eng_prob > 0.5, "Cloud", "Not Cloud") %>%
+  factor(levels = c("Not Cloud", "Cloud"))
+
+rf_eng_results <- evaluate_classification(
+  y_true = y_test,
+  y_pred = rf_eng_pred,
+  y_prob_pred = rf_eng_prob
+)
+
+rf_eng_results$metrics
+rf_eng_results$confusion
+
+
+
+```
+
+
+## Random Forest Model for All Predictors
+
+For the random forest model using all predictors, mtry was tuned over the values 2,4,6, and 8. The highest tuning accuracy was achieved at mtry = 4, therefore selected for the final mode. The mtry = 2 produced slightly high sensitivity and AUROC but mtry = 4 gave the strongest overall accuracy. Sensitivity and AUROC were also reviewed.
+
+The final model using all predictors achieved the strongest performance of all models with an accuracy of 0.958, sensitivity of 0.957, and AUROC of 0.991. The high sensitivity means the model correctly identifies most cloud pixels. High AUROC means a strong separation between cloud and non-cloud.
+
+Radiance predictors with engineered features most likely provides the most complete information for cloud classification. The strong performance of the random forest model seemingly shows a nonlinear relationship between predicted and cloud labels. 
+
+```{r}
+rf_all_grid <- tibble(mtry=c(2,4,6,8))
+rf_all_tuning <- map_dfr(rf_all_grid$mtry, function(m) {
+  rf_fit <- ranger(
+    x = X_all_train,
+    y = y_train,
+    num.trees = 20,
+    mtry = m,
+    min.node.size = 1,
+    probability = TRUE,
+    num.threads = 2
+  )
+  
+  rf_prob <- predict(rf_fit, data = X_all_test)$predictions[, "Cloud"]
+  
+  rf_pred <- ifelse(rf_prob > 0.5, "Cloud", "Not Cloud") %>%
+    factor(levels = c("Not Cloud", "Cloud"))
+  
+  tibble(
+    mtry = m,
+    Accuracy = accuracy_vec(y_test, rf_pred),
+    Sensitivity = sens_vec(y_test, rf_pred, event_level = "second"),
+    AUROC = roc_auc_vec(y_test, rf_prob, event_level = "second"),
+  )
+})
+
+rf_all_tuning
+
+
+```
+
+
+
+```{r}
+
+ggplot(rf_all_tuning, aes(x = mtry, y = Accuracy)) +
+  geom_line() +
+  geom_point() +
+  theme_minimal() +
+  labs(
+    title = "RF Tuning All Predictors",
+    x = "mtry",
+    y = "Accuracy"
+  )
+
+
+best_mtry_all <- rf_all_tuning %>%
+  slice_max(Accuracy, n = 1, with_ties = FALSE) %>%
+  pull(mtry)
+
+best_mtry_all
+
+rf_all <- ranger(
+  x = X_all_train,
+  y = y_train,
+  num.trees = 20,
+  mtry = best_mtry_all,
+  min.node.size = 1,
+  probability = TRUE,
+  importance = "impurity",
+  num.threads = 2
+)
+
+rf_all_prob <- predict(rf_all, data = X_all_test)$predictions[, "Cloud"]
+
+rf_all_pred <- ifelse(rf_all_prob > 0.5, "Cloud", "Not Cloud") %>%
+  factor(levels = c("Not Cloud", "Cloud"))
+
+rf_all_results <- evaluate_classification(
+  y_true = y_test,
+  y_pred = rf_all_pred,
+  y_prob_pred = rf_all_prob
+)
+
+rf_all_results$metrics
+rf_all_results$confusion
+
+```
+
+
+
+## Model Comparison
+
+To assess the fit of the models, three evaluation metrics were used. These included accuracy, sensitivity, and AUROC. 
+
+Accuracy is a fundamental metric used for evaluating the performance of a classification model, giving the proportion of correct predictions made by the model out of all predictions.Sensitivity measures how many of the actual positive cases were correctly identified by the model. AUC-ROC helps understand how well a classification model distinguishes between two classes. In this case, it distinguishes cloud from non-cloud pixels across classification.
+
+Among the models, it is clear that the random forest model performed much better than the LASSO model. For the LASSO models, radiance only performed the worst. Performance improved when using the engineered-features. The LASSO engineered-features showed the highest accuracy and sensitivity among the LASSO models. The LASSO all predictors model showed the highest AUROC (0.955).
+
+All 3 random forest models were strong with the RF radiance achieving an accuracy of 0.926, sensitivity of 0.907, and AUROC of 0.973. The RF engineered model has a smaller lower accuracy but higher sensitivity. The RF all predictors model was the best out of the three with an accuracy of 0.959, sensitivity of 0.958, and AUROC of 0.991.
+
+The best model was the random forest using all predictors with strong performances across the metrics.
+
+
+```{r}
+
+model_comparison <- bind_rows(
+  lasso_rad_results$metrics %>% mutate(Model = "Lasso Radiances"),
+  lasso_eng_results$metrics %>% mutate(Model = "Lasso Engineered"),
+  lasso_all_results$metrics %>% mutate(Model = "Lasso All Predictors"),
+  rf_rad_results$metrics %>% mutate(Model = "RF Radiances"),
+  rf_eng_results$metrics %>% mutate(Model = "RF Engineered"),
+  rf_all_results$metrics %>% mutate(Model = "RF All Predictors")
+) %>%
+  select(Model, everything())
+
+model_comparison
+
+```
+
+## References
+
+https://www.geeksforgeeks.org/machine-learning/metrics-for-machine-learning-model/
+
+https://www.geeksforgeeks.org/machine-learning/auc-roc-curve/
+
+https://bradleyboehmke.github.io/HOML/random-forest.html
+
+https://tiffanymtang.github.io/dsip-s26/course_materials/supervised_learning/notebooks/supervised_learning.html#random-forests
+
+
+

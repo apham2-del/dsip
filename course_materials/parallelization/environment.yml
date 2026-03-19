@@ -1,0 +1,9 @@
+name: dsip_parallel
+channels:
+  - defaults
+dependencies:
+  - python=3.12
+  - pandas
+  - scikit-learn
+  - jupyterlab
+prefix: /opt/miniconda3/envs/dsip_parallel

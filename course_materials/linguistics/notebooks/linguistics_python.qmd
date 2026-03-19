@@ -1,0 +1,549 @@
+---
+title: "Linguistics Lab"
+author: "Prof. Tiffany Tang"
+date: "`r Sys.Date()`"
+format: 
+  html:
+    code-fold: show
+    code-summary: "Show Code"
+    code-tools: true
+    theme: sandstone
+    # theme: cerulean
+    embed-resources: true
+    lightbox: true
+jupyter: python3
+toc: true
+number-sections: true
+execute: 
+  warning: false
+  message: false
+---
+
+```{python setup, include=FALSE}
+import sys
+sys.path.append("..")
+
+from os.path import join as oj
+from python.load import *
+from python.clean import *
+from python.plot import *
+from python.utils import *
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+import umap
+
+
+DATA_PATH = oj("data")
+# DATA_PATH = oj("..", "data")
+```
+
+# README
+
+In this notebook, we will walk through an unsupervised learning case study based upon a linguistics survey dataset. The dataset contains responses to a survey with 67 questions, where each question has a set of possible responses indicating how a person typically speaks. The goal is to explore this linguistics survey data and to identify dialects, or groups of people who speak similarly, in the United States. Understanding such variation in languages/dialects can provide insights into historical, social, and geographical factors that have molded society over time.
+
+
+
+# Load Data
+
+There are two main datasets that we will be working with:
+
+-   `qa_key`: contains survey question and answer key
+-   `ling_orig`: contains the linguistics survey response data + the location of the survey respondant
+
+To begin, let's load in the data.
+
+```{python load-data}
+# load in data
+qa_key = load_q_and_a_key(DATA_PATH)
+ling_orig = load_ling_data(DATA_PATH)
+```
+
+
+Next, taking a quick look at the data...
+
+::: panel-tabset
+
+#### Q and A Data
+
+```{python}
+qa_key
+```
+
+#### Linguistics Data
+
+```{python}
+ling_orig
+```
+:::
+
+
+
+# Data Explorations
+
+Let's take a look at some of the survey questions and responses.
+
+To get you started, here is some code to plot a map of the survey respondents and their responses to a single question (here, question 50). \[Note: all plotting functions can be found in the `python/plot.py` file.\]
+
+**Play around with the `qid` below to explore different questions.**
+
+```{python}
+#| out-width: "100%"
+plot_ling_map(ling_orig, qa_key, qid = 50).show()
+```
+
+If you would like to look at the responses to multiple questions side-by-side, here is some code to help you do this.
+
+**Play around with the `qids` below to explore different questions side-by-side.**
+
+```{python}
+#| fig-width: 16
+#| fig-height: 12
+#| column: page
+
+qids = [80, 73, 110, 65]
+
+fig, axes = plt.subplots(
+  2, 2, figsize=(20, 16), 
+  subplot_kw={'projection': ccrs.PlateCarree()}
+)
+axes = axes.flatten()
+for i, qid in enumerate(qids):
+  plot_ling_map(
+    ling_orig, qa_key, qid=qid, ax=axes[i]
+  )
+
+plt.show()
+```
+
+::: {.callout-note title="More on EDA" collapse="true"}
+
+Are there other ways that you'd like to visualize this data (before proceeding to dimension reduction)?
+
+Two possibly interesting refinements to the above visualizations are:
+
+1. There are lots of categories with very few responses. What if we collapse these rare responses into an "other" category to simplify the visualization?
+
+```{python}
+# collapse responses with <5% of responses into "other" category
+# can change `min_prop` to a different value
+collapsed_out = collapse_survey_responses(ling_orig, qa_key, min_prop = 0.05)
+collapsed_ling_df = collapsed_out["ling_data"]
+collapsed_qa_key = collapsed_out["qa_key"]
+```
+
+```{python}
+#| fig-width: 16
+#| fig-height: 12
+#| column: page
+
+qids = [80, 73, 110, 65]
+
+fig, axes = plt.subplots(
+  2, 2, figsize=(20, 16), 
+  subplot_kw={'projection': ccrs.PlateCarree()}
+)
+axes = axes.flatten()
+for i, qid in enumerate(qids):
+  plot_ling_map(
+    collapsed_ling_df, collapsed_qa_key, qid=qid, ax=axes[i]
+  )
+
+plt.show()
+```
+
+2. Visualizing each survey data point may introduce some visual bias towards regions with more responses. Here is a visualization showing the most popular response per county.
+
+```{python}
+#| fig-width: 16
+#| fig-height: 12
+#| column: page
+
+qids = [80, 73, 110, 65]
+
+fig, axes = plt.subplots(
+  2, 2, figsize=(20, 16)
+)
+axes = axes.flatten()
+for i, qid in enumerate(qids):
+  plot_ling_map_by_county(
+    collapsed_ling_df, collapsed_qa_key, qid=qid, ax=axes[i]
+  )
+
+plt.show()
+```
+
+:::
+
+# Dimension Reduction
+
+Instead of examining each survey question one-by-one, we can use dimension reduction techniques to summarize all 67 questions into a few dimensions. This will allow us to more easily visualize the survey data in a lower-dimensional space and potentially identify patterns in the data that are not immediately obvious from just a single survey question.
+
+## Principal Components Analysis
+
+Let's start with arguably the most popular and simple dimension reduction technique - principal components analysis (PCA) using `PCA()`.
+
+If we apply PCA directly to our raw linguistics survey data:
+
+```{python}
+# do PCA
+X = get_X_matrix(ling_orig)
+orig_pca_out = PCA()
+orig_scores = pd.DataFrame(orig_pca_out.fit_transform(X))
+orig_scores.columns = [f"PC{i+1}" for i in range(orig_scores.shape[1])]
+```
+
+We visualize the results of PCA below:
+
+- PCA (uncolored): the traditional PC plot (PC1 versus PC2)
+- PCA (colored): the same PC plot but colored by latitude (left) and longitude (right)
+- Map: each respondant is plotted on the US map according to their reported latitude and longitude and colored by their PC1 score (left) and PC2 score (right); we view the results at the individual level (top) and aggregated at the county level (bottom)
+
+Note these plots all contain the same information, but are plotted in different ways.
+
+::: {.panel-tabset}
+
+### PCA (uncolored)
+```{python}
+plot_dr_scatter(orig_scores, components = [0, 1])
+```
+
+### PCA (colored by location)
+```{python}
+plot_dr_scatter(
+  orig_scores, components=[0, 1], color=get_location(ling_orig, "lat"), 
+  color_label="Latitude"
+)
+plot_dr_scatter(
+  orig_scores, components=[0, 1], color=get_location(ling_orig, "long"), 
+  color_label="Longitude"
+)
+```
+
+### Map
+```{python}
+plot_dr_map(orig_scores, ling_orig)
+```
+
+### Map (by county)
+```{python}
+plot_dr_map(orig_scores, ling_orig, by_county=True)
+```
+
+:::
+
+Did we find meaningful clusters? Let's take a look at the top PC loadings:
+
+```{python}
+loadings = pd.DataFrame(orig_pca_out.components_.T)
+loadings.columns = [f"PC{i+1}" for i in range(loadings.shape[1])]
+for col in loadings.columns:
+    loadings[col] = pd.DataFrame({
+        "question": X.columns,
+        "rank": loadings[col].abs().rank(ascending=False),
+        "value": np.array([f"{q} ({l:.2f})" for q, l in zip(X.columns, loadings[col])])
+    }).sort_values("rank")["value"].reset_index(drop=True)
+loadings.head()
+```
+
+From the PC loadings, we see that the first PC puts a very high weight on Q59. Coloring the points in the PC plot by Q059 shows:
+
+```{python}
+plot_dr_scatter(
+  orig_scores, components=[0, 1], 
+  color=get_answers(ling_orig["Q059"], 59, qa_key), 
+  color_label="Q059"
+)
+```
+
+
+Why is the first PC picking up Q59?
+
+Let's try normalizing the X so that all the questions are on the same scale:
+
+```{python}
+# scale X
+X = get_X_matrix(ling_orig)
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+scaled_pca_out = PCA()
+scaled_scores = pd.DataFrame(scaled_pca_out.fit_transform(X_scaled))
+scaled_scores.columns = [f"PC{i+1}" for i in range(scaled_scores.shape[1])]
+```
+
+::: {.panel-tabset}
+
+### PCA (uncolored)
+```{python}
+plot_dr_scatter(scaled_scores, components = [0, 1])
+```
+
+### PCA (colored by location)
+```{python}
+plot_dr_scatter(
+  scaled_scores, components=[0, 1], color=get_location(ling_orig, "lat"), 
+  color_label="Latitude"
+)
+plot_dr_scatter(
+  scaled_scores, components=[0, 1], color=get_location(ling_orig, "long"), 
+  color_label="Longitude"
+)
+```
+
+### Map
+```{python}
+plot_dr_map(scaled_scores, ling_orig)
+```
+
+### Map (by county)
+```{python}
+plot_dr_map(scaled_scores, ling_orig, by_county=True)
+```
+
+:::
+
+But this still doesn't show much of a pattern with the geography of the US, which we would expect from our EDA. Why?
+
+How can we fix this issue?
+
+```{python}
+ling_ohe_df = ling_orig # TODO: replace line with correct answer
+X = get_X_matrix(ling_ohe_df)
+ohe_pca_out = PCA()
+ohe_scores = pd.DataFrame(ohe_pca_out.fit_transform(X))
+ohe_scores.columns = [f"PC{i+1}" for i in range(ohe_scores.shape[1])]
+```
+
+::: {.panel-tabset}
+
+### PCA (uncolored)
+```{python}
+plot_dr_scatter(ohe_scores, components = [0, 1])
+```
+
+### PCA (colored by location)
+```{python}
+plot_dr_scatter(
+  ohe_scores, components=[0, 1], color=get_location(ling_ohe_df, "lat"), 
+  color_label="Latitude"
+)
+plot_dr_scatter(
+  ohe_scores, components=[0, 1], color=get_location(ling_ohe_df, "long"), 
+  color_label="Longitude"
+)
+```
+
+### Map
+```{python}
+plot_dr_map(ohe_scores, ling_ohe_df)
+```
+
+### Map (by county)
+```{python}
+plot_dr_map(ohe_scores, ling_ohe_df, by_county=True)
+```
+
+:::
+
+What is the dominating the variation explained in the first PC1 now? 
+
+```{python}
+loadings = pd.DataFrame(ohe_pca_out.components_.T)
+loadings.columns = [f"PC{i+1}" for i in range(loadings.shape[1])]
+for col in loadings.columns:
+    loadings[col] = pd.DataFrame({
+        "question": X.columns,
+        "rank": loadings[col].abs().rank(ascending=False),
+        "value": np.array([f"{q} ({l:.2f})" for q, l in zip(X.columns, loadings[col])])
+    }).sort_values("rank")["value"].reset_index(drop=True)
+loadings.head()
+```
+
+```{python}
+num_nas = (get_X_matrix(ling_orig) == 0).sum(axis=1)
+plt.hist(num_nas)
+plt.xlabel("Number of NAs per Respondant")
+plt.show()
+
+plot_dr_scatter(
+  ohe_scores, components=[0, 1], 
+  color=num_nas,
+  color_label="# of Missing Responses"
+)
+```
+
+
+Let's revisit our data cleaning procedure and remove people who left too many questions unanswered, remove the columns corresponding to NA responses, and do PCA.
+
+```{python}
+# remove samples with too few answers
+ling_df_cleaned = remove_samples(ling_orig, min_answers=50)
+# remove_zeros removes the columns corresponding to NA responses
+ling_ohe_df = one_hot_ling_data(ling_df_cleaned, remove_zeros=True)
+X = get_X_matrix(ling_ohe_df)
+# do PCA
+pca_out = PCA()
+pca_scores = pd.DataFrame(pca_out.fit_transform(X))
+pca_scores.columns = [f"PC{i+1}" for i in range(pca_scores.shape[1])]
+```
+
+::: {.panel-tabset}
+
+### PCA (uncolored)
+```{python}
+plot_dr_scatter(pca_scores, components = [0, 1])
+```
+
+### PCA (colored by location)
+```{python}
+plot_dr_scatter(
+  pca_scores, components=[0, 1], color=get_location(ling_ohe_df, "lat"), 
+  color_label="Latitude"
+)
+plot_dr_scatter(
+  pca_scores, components=[0, 1], color=get_location(ling_ohe_df, "long"), 
+  color_label="Longitude"
+)
+```
+
+### Map
+```{python}
+plot_dr_map(pca_scores, ling_ohe_df)
+```
+
+### Map (by county)
+```{python}
+plot_dr_map(pca_scores, ling_ohe_df, by_county=True)
+```
+
+:::
+
+The first two PCs now show some association with geographical regions in the US.
+
+Like before, we can look at the PC loadings to find the features that are driving the top PCs
+
+```{python}
+loadings = pd.DataFrame(pca_out.components_.T)
+loadings.columns = [f"PC{i+1}" for i in range(loadings.shape[1])]
+for col in loadings.columns:
+    loadings[col] = pd.DataFrame({
+        "question": X.columns,
+        "rank": loadings[col].abs().rank(ascending=False),
+        "value": np.array([f"{q} ({l:.2f})" for q, l in zip(X.columns, loadings[col])])
+    }).sort_values("rank")["value"].reset_index(drop=True)
+loadings.head()
+```
+
+Lastly, to wrap up our PCA investigations, let us take a look at the proportion of variance explained (PVE) by the top PCs. 
+For instructive purposes, we will plot the cumulative PVE for each of the four PCA runs we have done so far. 
+We do this so as to highlight that **higher PVE is *not* necessarily indicative of a better PCA**. 
+Notably, PC1 from the first PCA run (using the raw data) has the highest PVE, but this PC1 is capturing variance that we do not care about. 
+In fact, this variance is an unwanted artifact of the way that the data was encoded. 
+PVEs across different PCA runs are also not directly comparable since PVE is always measured *relative* to the total amount of variation in the data and the total amount of variation almost always differs across datasets (or even the same dataset, scaled/cleaned/preprocessed differently). 
+Consequently, PVE alone should not be used to evaluate the "quality" or "usefulness" of PCA.
+
+```{python}
+pves = [np.cumsum(pca_out.explained_variance_ratio_) for pca_out in [orig_pca_out, scaled_pca_out, ohe_pca_out, pca_out]]
+labels = ["Raw", "Scaled", "One-Hot", "Cleaned"]
+for pve, label in zip(pves, labels):
+    plt.plot(pve, label=label)
+plt.xlim(0, 100)
+plt.xlabel("Number of PCs")
+plt.ylabel("Proportion of Variance Explained")
+plt.legend()
+plt.show()
+```
+
+
+## Alternative Dimension Reduction Pipelines
+
+Other things to try:
+
+- What if we had performed PCA at the county level (after aggregating the survey responses by county)?
+
+```{python}
+# aggregate_survey_response_by_county() computes the proportion of each response per county
+ling_county_df = aggregate_survey_response_by_county(ling_ohe_df)
+X = get_X_matrix(ling_county_df)
+
+# do PCA
+pca_out = PCA()
+pca_scores = pd.DataFrame(pca_out.fit_transform(X))
+pca_scores.columns = [f"PC{i+1}" for i in range(pca_scores.shape[1])]
+```
+
+::: {.panel-tabset}
+
+### PCA (uncolored)
+```{python}
+plot_dr_scatter(pca_scores, components = [0, 1])
+```
+
+### PCA (colored by location)
+```{python}
+plot_dr_scatter(
+  pca_scores, components=[0, 1], color=get_location(ling_county_df, "lat"), 
+  color_label="Latitude"
+)
+plot_dr_scatter(
+  pca_scores, components=[0, 1], color=get_location(ling_county_df, "long"), 
+  color_label="Longitude"
+)
+```
+
+### Map (by county)
+```{python}
+plot_dr_map(pca_scores, ling_county_df, by_county=True)
+```
+
+:::
+
+And the corresponding PC loadings:
+
+```{python}
+loadings = pd.DataFrame(pca_out.components_.T)
+loadings.columns = [f"PC{i+1}" for i in range(loadings.shape[1])]
+for col in loadings.columns:
+    loadings[col] = pd.DataFrame({
+        "question": X.columns,
+        "rank": loadings[col].abs().rank(ascending=False),
+        "value": np.array([f"{q} ({l:.2f})" for q, l in zip(X.columns, loadings[col])])
+    }).sort_values("rank")["value"].reset_index(drop=True)
+loadings.head()
+```
+
+## Your Turn (t-SNE and UMAP)
+
+**Your Goal**: Explore the data using t-SNE (`help(TSNE)`) and UMAP (`help(umap.UMAP)`). You can try applying these techniques to the raw individual data, to the county-level data, or to other pre-processed data variants. *Tips:*
+
+- To reduce runtime, I would suggest to apply t-SNE and UMAP to the cleaned, aggregated county-level data instead of the raw individual-level data.
+- For help with t-SNE and UMAP code, check out the Unsupervised Learning page on our course website ([t-SNE](https://tiffanymtang.github.io/dsip-s26/course_materials/unsupervised_learning/notebooks/unsupervised_learning.html#t-distributed-stochastic-neighbor-embedding-tsne) and [UMAP](https://tiffanymtang.github.io/dsip-s26/course_materials/unsupervised_learning/notebooks/unsupervised_learning.html#uniform-manifold-approximation-and-projection-umap)). 
+
+```{python}
+# # individual data
+# q_cols = [col for col in ling_ohe_df.columns if col.startswith("Q")]
+# ling_ohe_df_distinct = ling_ohe_df.drop_duplicates(subset=q_cols).reset_index(drop=True)
+# X = get_X_matrix(ling_ohe_df_distinct)
+
+# county-level data
+q_cols = [col for col in ling_county_df.columns if col.startswith("Q")]
+ling_county_df_distinct = ling_county_df.drop_duplicates(subset=q_cols).reset_index(drop=True)
+X = get_X_matrix(ling_county_df_distinct)
+
+# TODO: fill in with t-SNE code
+```
+
+    
+```{python}
+# # individual data
+# q_cols = [col for col in ling_ohe_df.columns if col.startswith("Q")]
+# ling_ohe_df_distinct = ling_ohe_df.drop_duplicates(subset=q_cols).reset_index(drop=True)
+# X = get_X_matrix(ling_ohe_df_distinct)
+
+# county-level data
+q_cols = [col for col in ling_county_df.columns if col.startswith("Q")]
+ling_county_df_distinct = ling_county_df.drop_duplicates(subset=q_cols).reset_index(drop=True)
+X = get_X_matrix(ling_county_df_distinct)
+
+# TODO: fill in with UMAP code
+```

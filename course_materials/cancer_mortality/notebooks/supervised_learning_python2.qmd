@@ -1,0 +1,455 @@
+---
+title: "Cancer Mortality"
+author: Prof. Tang
+date: today
+format: 
+  html:
+    code-fold: show
+    code-summary: "Show Code"
+    code-tools: true
+    theme: sandstone
+    lightbox: true
+    embed-resources: true
+toc: true
+execute: 
+  warning: false
+  message: false
+jupyter: python3
+---
+
+```{python setup}
+import os
+from os.path import join as oj
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression, LassoCV
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import r2_score, mean_absolute_error, root_mean_squared_error
+from plotnine import ggplot, aes, geom_histogram, labs, theme_classic, \
+  geom_point, facet_wrap, theme, element_text
+import seaborn as sns
+from matplotlib import pyplot as plt
+
+# DATA_DIR = oj("..", "data")
+# RESULTS_DIR = oj("..", "results")
+DATA_DIR = oj("data")
+RESULTS_DIR = oj("results")
+```
+
+## Load in Cancer Mortality Data
+
+In this analysis, let's explore a cancer mortality dataset collected by the National Cancer Institute (NCI) and the Centers for Disease Control and Prevention (CDC). The dataset contains information on cancer mortality rates and various demographic, socioeconomic, and health-related factors for different U.S. counties. 
+
+```{python}
+cancer_train_orig = pd.read_csv(
+  oj(DATA_DIR, "cancer_train.csv"), encoding="ISO-8859-1"
+)
+cancer_test_orig = pd.read_csv(
+  oj(DATA_DIR, "cancer_test.csv"), encoding="ISO-8859-1"
+)
+```
+
+A brief description of the variables in the dataset is as follows:
+
+- `TARGET_deathRate`: Dependent variable of interest. Cancer mortality rate per 100,000 people.
+- `Geography`: Name of the county and state.
+- `incidenceRate`: Cancer diagnosis (incidence) rate per 100,000 people.
+- `popEst2015`: Estimated population in 2015.
+- `BirthRate`: Number of live births relative to number of women in county.
+- `medIncome`: Median household income.
+- `povertyPercent`: Percentage of populace below the poverty line.
+- `studyPerCap`: Number of cancer-related clinical trials per capita.
+- `MedianAge`: Median age of the population.
+- `MedianAgeMale`: Median male age of the population.
+- `MedianAgeFemale`: Median female age of the population.
+- `AvgHouseholdSize`: Average household size.
+- `PercentMarried`: Percentage of residents who are married.
+- `PctEmployed16_Over`: Percentage of residents ages 16 and over who are employed.
+- `PctUnemployed16_Over`: Percentage of residents ages 16 and over who are unemployed.
+- `PctWhite`: Percentage of residents who identify as White.
+- `PctBlack`: Percentage of residents who identify as Black.
+- `PctAsian`: Percentage of residents who identify as Asian.
+- `PctOtherRace`: Percentage of residents who identify in a category which is not White, Black, or Asian.
+
+This is a subset of the larger cancer mortality dataset, which contains more variables. We have removed some variables for the sake of simplicity and demonstration. If you would like to go back and use this larger dataset, you can instead load in the `cancer_train_full.csv` and `cancer_test_full.csv` files, which contain the full set of variables with data dictionary available [here](https://www.kaggle.com/datasets/gurtegsawhney/cancer-death-rates-data).
+
+Some quick and helpful snapshots of the training data:
+
+::: {.panel-tabset}
+
+### `print()`
+
+```{python}
+cancer_train_orig
+```
+
+### `info()`
+
+```{python}
+cancer_train_orig.info()
+```
+
+### `describe()`
+
+```{python}
+cancer_train_orig.describe()
+```
+
+:::
+
+Some observations based upon these quick explorations:
+
+-   There is one qualitative variable (i.e., `Geography`).
+-   There is one variable (i.e., `PctEmployed16_Over`) with missing values.
+    -   How can we deal with such missingness? Options include:
+        (i) Impute missing values using mean, median, mode, or other imputation methods.
+        (ii) Remove observations (i.e., rows) with too many missing values.
+        (iii) Remove variables (i.e., columns) with too many missing values. *We will do this since `PctEmployed16_Over` is likely redundant given `PctUnemployed16_Over`.*
+
+## Data Cleaning
+
+We will next perform some data cleaning steps to prepare the data for analysis. Specifically, we will
+
+-   Deal with missing values by removing variables/columns with missing values. We chose this approach since there is only one variable with missing values and it is likely redundant given that we have `PctUnemployed16_Over`.
+
+Other data cleaning steps could also be taken, but we will keep it simple for now.
+
+```{python}
+# get names of variables/columns with missing values
+na_vars = cancer_train_orig.columns[cancer_train_orig.isna().any()].tolist()
+# remove variables/columns with missing values
+cancer_train = cancer_train_orig.loc[:, ~cancer_train_orig.columns.isin(na_vars)]
+cancer_test = cancer_test_orig.loc[:, ~cancer_test_orig.columns.isin(na_vars)]
+
+# move Geography to row names and remove Geography column
+cancer_train.index = cancer_train["Geography"]
+cancer_train = cancer_train.drop(columns = "Geography")
+cancer_test.index = cancer_test["Geography"]
+cancer_test = cancer_test.drop(columns = "Geography")
+```
+
+Let's take a look at the cleaned data:
+
+```{python}
+cancer_train
+```
+
+
+## Data Splitting
+
+We next split the training data into two parts: a training set (e.g., 75% of the data) and a validation set (e.g., 25% of the data). The training set would be used to build and tune our models while the validation set would be used to perform model selection. Note: we are also given a separate test set (`cancer_test.csv`), which will eventually be used to evaluate our selected model's prediction performance and obtain an unbiased estimate of the model's generalization error.
+
+```{python}
+# split training data into two parts: training and validation
+X = cancer_train.drop(columns = "TARGET_deathRate")
+y = cancer_train["TARGET_deathRate"]
+X_train, X_valid, y_train, y_valid = train_test_split(
+  X, y, test_size = 0.25, random_state = 123
+)
+```
+
+## Exploratory Data Analysis
+
+Before modeling, it is also important to visualize and understand our data through an exploratory data analysis (EDA). At a minimum, it is generally good practice to visualize 
+
+(i) the distribution of the response variable, 
+(ii) the distribution of the predictor variables, 
+(iii) the correlation between the predictor variables, and 
+(iv) the relationship between the response variable and each predictor variable. 
+
+Throughout this EDA, we will use the training portion of the data (`cancer_train`) to avoid any potential data leakage (or "data snooping").
+
+:::{.panel-tabset}
+
+### Y Distribution
+
+```{python}
+ggplot(cancer_train) +\
+  aes(x = "TARGET_deathRate") +\
+  geom_histogram(color = "white") +\
+  labs(
+    x = "Cancer Mortality Rate", 
+    y = "Frequency", 
+    title = "Histogram of Cancer Mortality Rate"
+  ) +\
+  theme_classic()
+```
+
+### X Distributions
+
+```{python}
+# convert cancer data from "wide" format to "long" format for ggplot
+plt_df = cancer_train.melt(
+  id_vars = "TARGET_deathRate", var_name = "variable", value_name = "value"
+)
+ggplot(plt_df) +\
+  aes(x = "value") +\
+  geom_histogram(color = "white", bins = 20) +\
+  facet_wrap("~ variable", scales = "free", ncol = 4) +\
+  labs(
+    x = "Value", 
+    y = "Frequency", 
+    title = "Histograms of Quantitative Covariates"
+  ) +\
+  theme_classic()
+```
+
+### Correlations
+
+```{python}
+plt.figure(figsize=(8, 6))
+sns.heatmap(cancer_train.corr(), annot = True, fmt = ".2f", cmap = "coolwarm", center = 0)
+plt.title("Correlation Heatmap of Quantitative Variables")
+plt.show()
+```
+
+
+### Relationship Between Response and Predictors
+
+```{python}
+# convert cancer data from "wide" format to "long" format for ggplot
+plt_df = cancer_train.melt(
+  id_vars = "TARGET_deathRate", var_name = "variable", value_name = "value"
+)
+ggplot(plt_df) +\
+  aes(x = "value", y = "TARGET_deathRate") +\
+  geom_point(size = 0.25) +\
+  facet_wrap("~ variable", scales = "free", ncol = 4) +\
+  labs(
+    x = "Predictor Value", 
+    y = "Cancer Mortality Rate", 
+    title = "Scatterplots of Cancer Mortality Rate vs. Quantitative Covariates"
+  ) +\
+  theme_classic()
+```
+
+:::
+
+## Modeling
+
+For the sake of demonstration, we will fit a linear regression model, a LASSO regression model, and a random forest model to predict cancer mortality rates.
+
+```{python}
+# models
+models_dict = {
+  "OLS": LinearRegression(),
+  "LASSO": LassoCV(cv = 5, random_state = 123),
+  "RF": RandomForestRegressor(
+    n_estimators = 500, 
+    max_features = "sqrt", 
+    min_samples_leaf = 5, 
+    random_state = 123
+  )
+}
+
+# evaluation metrics
+metrics_dict = {
+  "RMSE": root_mean_squared_error,
+  "R2": r2_score,
+  "MAE": mean_absolute_error
+}
+
+# fit models on training data and evaluate on validation data
+valid_metrics_ls = []
+for model_name, model in models_dict.items():
+  model.fit(X_train, y_train)
+  preds_valid = model.predict(X_valid)
+  for metric_name, metric_func in metrics_dict.items():
+    metric_value = metric_func(y_valid, preds_valid)
+    valid_metrics_ls.append({
+      "model": model_name,
+      "metric": metric_name,
+      "value": metric_value
+    })
+
+valid_metrics_df = pd.DataFrame(valid_metrics_ls).pivot(index = "model", columns = "metric", values = "value")
+print(valid_metrics_df)
+```
+
+### AutoGluon
+
+::: {.panel-tabset}
+
+#### Medium Quality
+```{python}
+# to install autogluon in your conda environment, run the following commands in your terminal;
+# conda activate <your_environment_name>
+# conda install -c conda-forge mamba
+# mamba install -c conda-forge autogluon 
+
+from autogluon.tabular import TabularPredictor
+
+# data input for autogluon needs to be in the form of a single dataframe with the response variable as one of the columns
+cancer_train_automl = X_train.copy()
+cancer_train_automl["TARGET_deathRate"] = y_train
+cancer_valid_automl = X_valid.copy()
+cancer_valid_automl["TARGET_deathRate"] = y_valid
+
+# instantiate tabular predictor
+model = TabularPredictor(label="TARGET_deathRate", problem_type="regression")
+# fit model (can change presets to obtain "higher quality" results; see docs)
+model.fit(cancer_train_automl, presets="medium_quality")
+
+# make predictions using best model
+y_preds = model.predict(X_valid)
+
+# assess which model was best according to autogluon leaderboard
+model.leaderboard(cancer_valid_automl)
+
+# compute validation metrics
+automl_valid_metrics = {
+  metric_name: metric_func(y_valid, y_preds)
+  for metric_name, metric_func in metrics_dict.items()
+}
+# append to validation metrics dataframe
+valid_metrics_df.loc["AutoGluon (medium)"] = automl_valid_metrics
+print(valid_metrics_df)
+
+plt_df = pd.DataFrame({
+  "Observed": y_valid,
+  "Predicted": y_preds
+})
+ggplot(plt_df) +\
+  aes(x = "Observed", y = "Predicted") +\
+  geom_point() +\
+  labs(
+    x = "Observed Cancer Mortality Rate", 
+    y = "Predicted Cancer Mortality Rate", 
+    title = "Observed vs. Predicted Cancer Mortality Rates"
+  ) +\
+  theme_classic()
+```
+
+#### High Quality
+
+```{python}
+# to install autogluon in your conda environment, run the following commands in your terminal;
+# conda activate <your_environment_name>
+# conda install -c conda-forge mamba
+# mamba install -c conda-forge autogluon 
+
+from autogluon.tabular import TabularPredictor
+
+# data input for autogluon needs to be in the form of a single dataframe with the response variable as one of the columns
+cancer_train_automl = X_train.copy()
+cancer_train_automl["TARGET_deathRate"] = y_train
+cancer_valid_automl = X_valid.copy()
+cancer_valid_automl["TARGET_deathRate"] = y_valid
+
+# instantiate tabular predictor
+model = TabularPredictor(label="TARGET_deathRate", problem_type="regression")
+# fit model (can change presets to obtain "higher quality" results; see docs)
+model.fit(cancer_train_automl, presets="best_quality", time_limit = 120)
+
+# make predictions using best model
+y_preds = model.predict(X_valid)
+
+# assess which model was best according to autogluon leaderboard
+model.leaderboard(cancer_valid_automl)
+
+# compute validation metrics
+automl_valid_metrics = {
+  metric_name: metric_func(y_valid, y_preds)
+  for metric_name, metric_func in metrics_dict.items()
+}
+# append to validation metrics dataframe
+valid_metrics_df.loc["AutoGluon (best)"] = automl_valid_metrics
+print(valid_metrics_df)
+
+plt_df = pd.DataFrame({
+  "Observed": y_valid,
+  "Predicted": y_preds
+})
+ggplot(plt_df) +\
+  aes(x = "Observed", y = "Predicted") +\
+  geom_point() +\
+  labs(
+    x = "Observed Cancer Mortality Rate", 
+    y = "Predicted Cancer Mortality Rate", 
+    title = "Observed vs. Predicted Cancer Mortality Rates"
+  ) +\
+  theme_classic()
+```
+
+:::
+
+### TabPFN
+
+```{python}
+#| eval: false
+
+from tabpfn import TabPFNRegressor
+
+os.environ["HF_TOKEN"] = "XXX"
+
+# instantiate tabular predictor
+model = TabPFNRegressor()
+
+# fit model
+model.fit(X_train, y_train)
+
+# make predictions using best model
+y_preds = model.predict(X_valid)
+
+# compute validation metrics
+tabpfn_valid_metrics = {
+  metric_name: metric_func(y_valid, y_preds)
+  for metric_name, metric_func in metrics_dict.items()
+}
+# append to validation metrics dataframe
+valid_metrics_df.loc["TabPFN"] = tabpfn_valid_metrics
+print(valid_metrics_df)
+
+plt_df = pd.DataFrame({
+  "Observed": y_valid,
+  "Predicted": y_preds
+})
+ggplot(plt_df) +\
+  aes(x = "Observed", y = "Predicted") +\
+  geom_point() +\
+  labs(
+    x = "Observed Cancer Mortality Rate", 
+    y = "Predicted Cancer Mortality Rate", 
+    title = "Observed vs. Predicted Cancer Mortality Rates"
+  ) +\
+  theme_classic()
+```
+
+## Prediction on test set
+
+```{python}
+# re-fit best model on all training data (i.e., training + validation)
+best_model = RandomForestRegressor(
+  n_estimators = 500, 
+  max_features = "sqrt", 
+  min_samples_leaf = 5, 
+  random_state = 123
+)
+best_model.fit(X, y)
+
+# predict on test set
+preds_test = best_model.predict(cancer_test)
+
+# save predictions to file
+if not os.path.exists(RESULTS_DIR):
+  os.makedirs(RESULTS_DIR)
+pd.DataFrame(preds_test, columns = ["TARGET_deathRate"]).to_csv(
+  oj(RESULTS_DIR, "test_predictions.csv"), index = False
+)
+```
+
+```{python}
+#| eval: false
+
+# # TODO: UNCOMMENT LATER AND REMOVE `eval: false` TO EVALUATE TEST PREDICTIONS
+# # read in true test labels
+# test_labels = pd.read_csv(
+#   oj(DATA_DIR, "cancer_test_labels.csv")
+# )
+# # compute test metrics
+# test_metrics = {
+#   metric_name: metric_func(test_labels["TARGET_deathRate"], preds_test)
+#   for metric_name, metric_func in metrics_dict.items()
+# }
+# print(test_metrics)
+```

@@ -1,0 +1,19 @@
+<div class="scroll-arrow">↓</div>
+
+<script>
+function updateScrollArrow() {
+  const arrow = document.querySelector('.scroll-arrow');
+  const current = document.querySelector('.reveal .slides section.present');
+
+  if (!current) return;
+
+  // Does content overflow vertically?
+  const scrollable = current.scrollHeight > current.clientHeight;
+
+  arrow.style.display = scrollable ? 'block' : 'none';
+}
+
+Reveal.on('slidechanged', updateScrollArrow);
+Reveal.on('ready', updateScrollArrow);
+window.addEventListener('resize', updateScrollArrow);
+</script>

@@ -1,0 +1,943 @@
+---
+title: "ggplot2 Tutorial"
+format: html
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  comment = "#>",
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.show = "hold",
+  fig.align = "center"
+)
+```
+
+## ggplot2 Overview
+
+-   **ggplot2** is a powerful and flexible visualization library in R based on the **G**rammar of **G**raphics
+
+-   **Grammar of Graphics**: build complex plots by **layering** components such as *data*, *aesthetics*, *geometries*, *scales*, *facets*, and *themes*
+
+-   **Tutorial Outline:**
+
+    -   Basic ggplot structure
+    -   Geoms & aesthetics
+    -   Layering
+    -   Customization and themes
+    -   Advanced topics:
+        -   Faceting
+        -   Combining multiple ggplots with `patchwork`
+        -   Interactive plotting with `plotly`
+
+- *Note:* This tutorial will be written in R. If you would like to use ggplot2 in Python, (most of) the same commands are available as part of the `plotnine` package. Simply import `plotnine` and use the same syntax as ggplot2!
+
+## Setup
+
+### Packages
+
+Install packages: (only need to do once)
+
+```{r eval=FALSE}
+install.packages("ggplot2")
+install.packages("dplyr")
+install.packages("tidyr")
+install.packages("stringr")
+install.packages("tibble")
+install.packages("viridis")
+install.packages("patchwork")
+install.packages("plotly")
+```
+
+After installing, you can load these packages into our environment:
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(tibble)
+library(viridis)
+library(patchwork)
+library(plotly)
+```
+
+### Load Data
+
+In this tutorial, we will be working with data from **college football games** over the last 20 years (2005-2025), which can be found on Canvas (`cfb_data.csv`).
+
+```{r}
+DATA_PATH <- "data"
+cfb_data <- read.csv(file.path(DATA_PATH, "cfb_data.csv"))
+str(cfb_data)
+```
+
+This is a pretty big dataset!
+
+------------------------------------------------------------------------
+
+For the sake of this tutorial, let's subset this dataset to focus on a handful of teams, e.g., **Notre Dame** and **Arkansas**.
+
+```{r}
+keep_teams <- c("Notre Dame", "Arkansas")
+cfb_subset <- cfb_data[cfb_data$Team %in% keep_teams, ]
+str(cfb_subset)
+```
+
+Please feel free to choose (or add) other teams if you prefer! Below is a list of the teams available in the dataset:
+
+```{r}
+sort(unique(cfb_data$Team))
+```
+
+------------------------------------------------------------------------
+
+Let's also create a **summary dataset** with the average points scored and allowed per quarter for each team in each season, as well as the average points differential and win percentage.
+
+This summarized dataset will be useful for some of our visualizations later on.
+
+```{r}
+cfb_summary <- cfb_subset |> 
+  # group data by Season and Team
+  group_by(Season, Team) |> 
+  summarise( # for each (Season, Team),
+    # compute mean for each specified column (Points, Q1, ...)
+    across(
+      c(Points, Q1, Q2, Q3, Q4, OppPoints, OppQ1, OppQ2, OppQ3, OppQ4),
+      ~ mean(.x, na.rm = TRUE),
+      .names = "Avg{col}"
+    ),
+    # compute average points differential (team's point - opponent's points)
+    PointsDifferential = mean(Points - OppPoints, na.rm = TRUE),
+    # compute win percentage
+    WinPercent = mean(Outcome == "Win", na.rm = TRUE)
+  )
+cfb_summary
+```
+
+### Data Overview
+
+Here's a quick look at our two main datasets:
+
+-   **cfb_subset**: Game-level data for selected teams
+
+```{r}
+as_tibble(cfb_subset)
+```
+
+-   **cfb_summary**: Season-level summary data for selected teams
+
+```{r}
+as_tibble(cfb_summary)
+```
+
+## Overview of ggplot2 Structure
+
+The basic structure of a ggplot consists of three main components:
+
+1.  **Data**: The dataset you want to visualize.
+
+2.  **Aesthetics**: Mappings that describe how data variables are mapped to visual properties (e.g., x and y axes, color, size). Common aesthetics include:
+
+    -   `x`, `y`
+    -   `color` (outline color)
+    -   `fill` (interior color for bars/boxes)
+    -   `shape`
+    -   `size`
+    -   `alpha` (transparency)
+    -   `linetype` (for lines)
+
+3.  **Geometries**: The type of plot you want to create (e.g., points, lines, bars). Common geometries include:
+
+    -   `geom_point()` for scatter plots
+    -   `geom_line()` for line plots
+    -   `geom_bar()` for bar plots
+    -   `geom_histogram()` for histograms
+    -   `geom_density()` for density plots
+    -   `geom_boxplot()` for boxplots
+    -   `geom_ribbon()` for ribbons/areas
+    -   `geom_errorbar()` for error bars
+    -   `geom_hline()` for horizontal lines
+    -   `geom_vline()` for vertical lines
+    -   `geom_abline()` for arbitrary lines
+
+The general syntax is:
+
+``` r
+ggplot(data) +
+  geom_*(
+    aes(x = ..., y = ...),   # aesthetics (usually column names from data.frame)
+    <OTHER_ARGUMENTS>  # other arguments
+  )
+```
+
+## Geometries & Aesthetics
+
+### Basic ggplot Example: Histogram
+
+To create a histogram of the points scored by our selected teams across all games:
+
+-   **Data**: `cfb_subset`
+-   **Geometry**: `geom_histogram`
+-   **Aesthetic**: `x = Points` (i.e., which column from the dataset to plot on the x-axis)
+
+```{r}
+ggplot(data = cfb_subset) +
+  geom_histogram(
+    aes(x = Points)
+  )
+```
+
+**Q:** How would you modify the above code to create a histogram of the points scored by our selected teams only in the fourth quarter (`Q4`)?
+
+```{r}
+ggplot(data = cfb_subset) +
+  geom_histogram(
+    aes(x = Q4)
+  )
+```
+
+We can also add additional arguments to customize the histogram, such as the number of bins, line color, fill color, etc.
+
+```{r}
+ggplot(data = cfb_subset) +
+  geom_histogram(
+    aes(x = Points),
+    bins = 15,
+    fill = "lightblue",  # fill = color of the inside/fill
+    color = "darkblue"   # color = color of the line/border
+  )
+```
+
+<hr>
+
+::: {style="height: 0.5em;"}
+:::
+
+**Q:** Try modifying the above code so that the outline color of the histogram is "grey93"?
+
+```{r}
+ggplot(data = cfb_subset) +
+  geom_histogram(
+    aes(x = Points),
+    bins = 15,
+    fill = "lightblue",  # fill = color of the inside/fill
+    color = "grey93"   # color = color of the line/border
+  )
+```
+
+### Basic ggplot Example: Density Plot
+
+Instead of the histogram geometry, we can alternatively plot the data as a density plot (using `geom_density()`):
+
+```{r}
+ggplot(cfb_subset) +
+  geom_density(
+    aes(x = Points)
+  )
+```
+
+And with additional customization:
+
+```{r}
+ggplot(cfb_subset) +
+  geom_density(
+    aes(x = Points),
+    fill = "lightblue",  # fill = color of the inside/fill
+    color = "darkblue"      # color = color of the line/border
+  )
+```
+
+### Basic ggplot Example: More Aesthetics
+
+However, this overall distribution is not very informative since we probably want to know the points distribution for each team separately.
+
+To do this, we can map the `Team` variable to the `color` aesthetic:
+
+```{r}
+ggplot(cfb_subset) +
+  geom_density(
+    aes(x = Points, color = Team)
+  )
+```
+
+And/or we can map the `Team` variable to the `fill` aesthetic:
+
+```{r}
+ggplot(cfb_subset) +
+  geom_density(
+    aes(x = Points, fill = Team)
+  )
+```
+
+```{r}
+ggplot(cfb_subset) +
+  geom_density(
+    aes(x = Points, color = Team, fill = Team)
+  )
+```
+
+We should also add some transparency when using `fill` to avoid complete overlap (`alpha = 0` is completely transparent; `alpha = 1` is completely opaque)
+
+```{r}
+ggplot(cfb_subset) +
+  geom_density(
+    aes(x = Points, fill = Team),
+    alpha = 0.4
+  )
+```
+
+```{r}
+ggplot(cfb_subset) +
+  geom_density(
+    aes(x = Points, color = Team, fill = Team),
+    alpha = 0.4
+  )
+```
+
+**Q**: Create a histogram of the fourth quarter points scored (`Q4`), where the fill aesthetic corresponds to `Team`. Set the transparency (`alpha`) of the fill to be 0.8, change the `linewidth` of the histogram outline to 0.5, and change the `color` of the outline to be `black`.
+
+```{r}
+ggplot(cfb_subset) +
+  geom_histogram(
+    aes(x = Q4, fill = Team),
+    alpha = 0.4, linewidth = 0.5, color = "black"
+  )
+```
+
+### Setting verus Mapping Aesthetics
+
+Arguably, the most confusing part of ggplot is understanding the difference between **setting global aesthetics** versus **mapping aesthetics to a variable**.
+
+Recall: we have already seen two different ways to specify the `color` (and `fill`) of our density plot, e.g.,
+
+<u>**Setting the color globally**</u>: `color` is specified **outside** `aes()`
+
+```{r}
+ggplot(cfb_subset) +
+  geom_density(
+    aes(x = Points),
+    color = "darkblue"
+  )
+```
+
+<u>**Mapping the color to a variable**</u>: `color` is specified **inside** `aes()`
+
+```{r}
+ggplot(cfb_subset) +
+  geom_density(
+    aes(x = Points, color = Team)
+  )
+```
+
+In general, **only use `aes()` for mapping aesthetics to data variables**. Any fixed (global) aesthetic values (e.g., constant colors, sizes, transparencies) should be specified *outside* of `aes()`.
+
+------------------------------------------------------------------------
+
+**Q**: What happens if you put a fixed value (e.g., `"darkblue"`) *inside* `aes()`?
+
+```{r}
+ggplot(cfb_subset) +
+  geom_density(
+    aes(x = Points, color = "darkblue")
+  )
+```
+
+**A**: ggplot will treat it as a categorical variable and create a legend for it! Note that all lines will still be the same color and not the intended dark blue color.
+
+## Adding Layers
+
+One of the best features of ggplot2 is that we can easily create complex plots by **adding (`+`) simple layers** together.
+
+Here's a quick summary of the main types of layers we can add to a ggplot:
+
+-   **Geometries**: Visual representation of data (points, lines, bars, etc.)
+-   **Labels & Titles**: Add titles and axis labels
+-   **Scales**: Customize aesthetic scales (colors, fills, sizes, linetypes, alphas, etc.)
+-   **Themes**: Customize overall plot appearance
+
+### Adding Layers: Geometries
+
+To demonstrate this, let's first start by creating a basic scatter plot (`geom_point()`) of the average point differentials for each season and team:
+
+```{r}
+ggplot(cfb_summary) +
+  geom_point(
+    aes(x = Season, y = PointsDifferential, color = Team)
+  )
+```
+
+We can then add a line layer (`geom_line()`) to connect the points for each team:
+
+```{r}
+ggplot(cfb_summary) +
+  geom_point(
+    aes(x = Season, y = PointsDifferential, color = Team)
+  ) +
+  geom_line(
+    aes(x = Season, y = PointsDifferential, color = Team)
+  )
+```
+
+It can be quite tedious to type out the aesthetics for each `geom_*()` layer. Luckily, if the aesthetics are the same across multiple layers, we can specify them in the initial `ggplot()` call; such aesthetics will then be inherited by all subsequent layers. The above code chunk is equivalent to:
+
+```{r}
+ggplot(cfb_summary) +
+  aes(x = Season, y = PointsDifferential, color = Team) +
+  geom_point() +
+  geom_line()
+```
+
+Remember: we can customize each layer individually by adding additional arguments to each `geom_*()` function. For example, we can change the point size and line width:
+
+```{r}
+ggplot(cfb_summary) +
+  aes(x = Season, y = PointsDifferential, color = Team) +
+  geom_point(size = 3) +
+  geom_line(linewidth = 1)
+```
+
+This is just the starting point. We can continue to add more and more layers to build up our plot. As one more example, let's add one more layer to the plot: a horizontal dotted line at y = 0 to indicate when the average points differential is zero.
+
+```{r}
+ggplot(cfb_summary) +
+  aes(x = Season, y = PointsDifferential, color = Team) +
+  geom_point(size = 3) +
+  geom_line(linewidth = 1) +
+  geom_hline(yintercept = 0, linetype = "dotted", color = "black")
+```
+
+------------------------------------------------------------------------
+
+**Q:** Before running the code chunk below, think to yourself what the following code would produce:
+
+```{r}
+ggplot(cfb_summary) +
+  aes(x = Season, y = PointsDifferential) +
+  geom_point() +
+  geom_line(aes(color = Team))
+```
+
+**A:** Because the `x` and `y` aesthetics are specified outside of any `geom_*()`, they apply to all subsequent layers (i.e., `geom_point()` and `geom_line()`). However, the `color` aesthetic is only specified for the `geom_line()` layer. Therefore, the points will all be the same color (default color is black), while the lines will be colored by team.
+
+------------------------------------------------------------------------
+
+**Q:** What is the difference between the above plot and the plot below?
+
+```{r}
+ggplot(cfb_summary) +
+  aes(x = Season, y = PointsDifferential) +
+  geom_line(aes(color = Team)) +
+  geom_point()
+```
+
+**A:** The only difference is the order of the layers. In the first plot, the points are drawn first, followed by the lines; hence, the line appears on top of the points. In the second plot, the lines are drawn first, followed by the points; hence, the points appear on top of the lines.
+
+### Adding Layers: Geometries with Different Data Sources
+
+We can even use different datasets and different aesthetics for different layers.
+
+For example, let's add a layer that shows the overall average points differential across all seasons for each team as horizontal dashed lines.
+
+```{r}
+# compute overall average points differential for each team
+overall_avg <- cfb_summary |> 
+  group_by(Team) |> 
+  summarise(OverallAvgDiff = mean(PointsDifferential))
+
+# create ggplot with additional horizontal lines
+ggplot(cfb_summary) +
+  aes(x = Season, y = PointsDifferential, color = Team) +
+  geom_point() +
+  geom_line() +
+  geom_hline(
+    data = overall_avg,
+    aes(yintercept = OverallAvgDiff, color = Team),
+    linetype = "dashed"
+  )
+```
+
+In general, each layer can have its own dataset and its own (mapped and/or set) aesthetics. If a layer does not specify its own dataset or aesthetics, it will inherit them from the initial `ggplot(data) + aes(...)` call.
+
+### Adding Layers: Labels and Titles
+
+Beyond adding `geom_*()` layers, we can also add other layers to customize our plots, such as adding titles and axis labels using `labs()`:
+
+```{r}
+ggplot(cfb_summary) +
+  aes(x = Season, y = PointsDifferential, color = Team) +
+  geom_point() +
+  geom_line() +
+  labs(
+    title = "Average Points Differential per Season",
+    x = "Year",
+    y = "Average Points Differential",
+    color = "Team Name"
+  )
+```
+
+As another example, consider the density plot from earlier. If we want to modify the legend title, we need to manually specify both the `color` and `fill` label in `labs()`:
+
+<u>**Wrong: Only `labs(color = ...)`**</u>
+
+```{r}
+ggplot(cfb_subset) +
+  geom_density(
+    aes(x = Points, color = Team, fill = Team),
+    alpha = 0.4, linewidth = 1
+  ) +
+  labs(
+    title = "Average Points Differential per Season",
+    x = "Year",
+    y = "Average Points Differential",
+    color = "Team Name"
+  )
+```
+
+<u>**Wrong: Only `labs(fill = ...)`**</u>
+
+```{r}
+ggplot(cfb_subset) +
+  geom_density(
+    aes(x = Points, color = Team, fill = Team),
+    alpha = 0.4, linewidth = 1
+  ) +
+  labs(
+    title = "Average Points Differential per Season",
+    x = "Year",
+    y = "Average Points Differential",
+    fill = "Team Name"
+  )
+```
+
+<u>**Correct: Both `labs(color = ..., fill = ...)`**</u>
+
+```{r}
+ggplot(cfb_subset) +
+  geom_density(
+    aes(x = Points, color = Team, fill = Team),
+    alpha = 0.4, linewidth = 1
+  ) +
+  labs(
+    title = "Average Points Differential per Season",
+    x = "Year",
+    y = "Average Points Differential",
+    color = "Team Name",
+    fill = "Team Name"
+  )
+```
+
+What does this demonstrate?
+
+-   Each aesthetic (e.g., `color`, `fill`, `size`, etc.) has its own legend and corresponding label in `labs()`
+-   If you want to customize the legend title for multiple aesthetics, you need to specify each one separately in `labs()`
+-   Aesthetics with the same label will be automatically collapsed into a single legend, as seen in the above example
+
+### Adding Layers: Custom Scales
+
+Each aesthetic (e.g., `color`, `size`, `shape`) also has a **scale**, which can be customized.
+
+For example, we can customize our (discrete) color scale using `scale_color_manual()` to specify our own colors for each team:
+
+```{r}
+ggplot(cfb_summary) +
+  aes(x = Season, y = PointsDifferential, color = Team) +
+  geom_point() +
+  geom_line() +
+  scale_color_manual(
+    values = c("Notre Dame" = "#0C2340", "Arkansas" = "#9D2235")
+  )
+```
+
+If you are working with a *continuous* color scale, I would highly recommend checking out the `viridis` package, which provides colorblind-friendly color scales. In particular, you can use `scale_color_viridis_c()` for continuous color scales (and `scale_color_viridis_d()` for discrete color scales).
+
+```{r}
+ggplot(cfb_summary) +
+  aes(x = Season, y = PointsDifferential, color = AvgPoints, linetype = Team) +
+  geom_line(color = "black") +
+  geom_point(size = 3) +
+  scale_color_viridis_c(option = "plasma")
+```
+
+In general, for any aesthetic (e.g., `color`, `fill`, `size`), there are corresponding `scale_*` functions to customize the scales. For example, to change the linetype scale above, we can use `scale_linetype_manual()`.
+
+```{r}
+ggplot(cfb_summary) +
+  aes(x = Season, y = PointsDifferential, color = AvgPoints, linetype = Team) +
+  geom_line(color = "black") +
+  geom_point(size = 3) +
+  scale_color_viridis_c(option = "plasma") +
+  scale_linetype_manual(
+    values = c("Notre Dame" = "solid", "Arkansas" = "dashed")
+  )
+```
+
+Going back to the previous density plot example, we can customize the fill colors using `scale_fill_manual()`.
+
+```{r}
+#| code-line-numbers: "6-11"
+
+ggplot(cfb_subset) +
+  geom_density(
+    aes(x = Points, fill = Team),
+    alpha = 0.5
+  ) +
+  scale_fill_manual(
+    values = c("Notre Dame" = "#0C2340", "Arkansas" = "#9D2235")
+  )
+```
+
+**Q**: This transparent ND blue is quite ugly. How would you change the code above to show ND as a nicer Irish green color (`#00843d`)? Moreover, how would you change the code to also plot the outline colors of the density plots using the AR red and ND green colors?
+
+```{r}
+ggplot(cfb_subset) +
+  geom_density(
+    aes(x = Points, fill = Team, color = Team),
+    alpha = 0.5, linewidth = 1
+  ) +
+  scale_color_manual(
+    values = c("Notre Dame" = "#00843d", "Arkansas" = "#9D2235")
+  ) +
+  scale_fill_manual(
+    values = c("Notre Dame" = "#00843d", "Arkansas" = "#9D2235")
+  )
+```
+
+Finally, note that `scale_*_manual()` functions can also be used to customize the labels shown in the legend. For example, we can rename the teams as follows:
+
+```{r}
+ggplot(cfb_subset) +
+  geom_density(
+    aes(x = Points, fill = Team, color = Team),
+    alpha = 0.5, linewidth = 1
+  ) +
+  scale_color_manual(
+    values = c("Notre Dame" = "#00843d", "Arkansas" = "#9D2235"),
+    labels = c("Notre Dame" = "ND", "Arkansas" = "AR")
+  ) +
+  scale_fill_manual(
+    values = c("Notre Dame" = "#00843d", "Arkansas" = "#9D2235"),
+    labels = c("Notre Dame" = "ND", "Arkansas" = "AR")
+  )
+```
+
+------------------------------------------------------------------------
+
+**Q**: What happens if you only specify `scale_color_manual()` but not `scale_fill_manual()` in the above code? What about the other way around?
+
+```{r}
+ggplot(cfb_subset) +
+  geom_density(
+    aes(x = Points, fill = Team, color = Team),
+    alpha = 0.5, linewidth = 1
+  ) +
+  scale_color_manual(
+    values = c("Notre Dame" = "#00843d", "Arkansas" = "#9D2235")
+  )
+```
+
+```{r}
+ggplot(cfb_subset) +
+  geom_density(
+    aes(x = Points, fill = Team, color = Team),
+    alpha = 0.5, linewidth = 1
+  ) +
+  scale_fill_manual(
+    values = c("Notre Dame" = "#00843d", "Arkansas" = "#9D2235")
+  )
+```
+
+**A**: If you only specify `scale_color_manual()`, the outline colors of the density plots will be customized, but the fill colors will remain as the default ggplot colors. Conversely, if you only specify `scale_fill_manual()`, the fill colors will be customized, but the outline colors will remain as the default ggplot colors.
+
+### Adding Layers: Custom Theme
+
+Finally, the overall appearance of the plot is controlled by its **theme**.
+
+ggplot2 provides several built-in themes (`theme_*()`) that can be applied.
+
+-   `theme_gray()` (default)
+-   `theme_bw()` (black and white)
+-   `theme_minimal()`
+-   `theme_classic()`
+-   `theme_void()` (no axes, gridlines, or background)
+
+------------------------------------------------------------------------
+
+**Q**: Try replacing `theme_minimal()` below with different themes and see how the plot appearance changes.
+
+```{r}
+ggplot(cfb_summary) +
+  aes(x = Season, y = PointsDifferential, color = Team) +
+  geom_point() +
+  geom_line() +
+  theme_minimal()
+```
+
+------------------------------------------------------------------------
+
+Beyond the built-in themes, ggplot2 gives the user great flexibility to customize themes using the generic `theme()` function. For example, we can change the text size of the title and axis labels, change the legend position, and modify the grid lines.
+
+```{r}
+ggplot(cfb_summary) +
+  aes(x = Season, y = PointsDifferential, color = Team) +
+  geom_point() +
+  geom_line() +
+  labs(title = "This is a centered, bolded title") + 
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 20, face = "bold", hjust = 0.5),
+    axis.title.x = element_text(size = 16),
+    axis.title.y = element_text(size = 16),
+    axis.text.x = element_text(size = 12, angle = 90, vjust = 0.5), # rotate x-axis text
+    axis.text.y = element_text(size = 12),
+    legend.position = "bottom",
+    legend.title = element_text(size = 16, face = "bold"),
+    legend.text = element_text(size = 12),
+    panel.grid.major = element_line(color = "gray95"),   # make major grid lines lighter
+    panel.grid.minor = element_line(size = 0),           # remove minor grid lines
+    axis.line = element_line(color = "black", linewidth = 1), # adjust thickness of x-y axis lines
+    panel.background = element_rect(fill = "white", color = "white") # change background color
+  )
+```
+
+Generally, you can use `element_text()` to customize text elements, `element_line()` to customize line elements, and `element_rect()` to customize rectangular elements. To learn more, check out the [ggplot2 theme documentation](https://ggplot2.tidyverse.org/reference/theme.html) (or `? ggplot2::theme`).
+
+### Summary of Layers
+
+Here's a quick summary of the different types of layers we have covered so far:
+
+| Layer Type | Function(s) | Purpose |
+|---------------|-------------------------------------|---------------------|
+| Geometries | `geom_point()`, `geom_line()`, `geom_bar()`, `geom_histogram()`, `geom_density()`, etc. | Visual representation of data (points, lines, bars, etc.) |
+| Labels & Titles | `labs()` | Add titles and axis labels |
+| Scales | `scale_color_manual()`, `scale_color_viridis_c()`, `scale_fill_manual()`, `scale_fill_viridis_c()`, `scale_*_manual()`, etc. | Customize aesthetic scales (colors, fills, sizes, linetypes, alphas, etc.) |
+| Themes | `theme_*()`, `theme()` | Customize overall plot appearance |
+
+There are many more layers and customization options available in ggplot2. Google (and ChatGPT) is your friend!
+
+## Advanced Topics
+
+1.  Faceting: `facet_wrap()` and `facet_grid()`
+2.  `Patchwork`: Combining Multiple ggplots
+3.  `Plotly`: Interactive ggplots
+
+### Faceting
+
+**Faceting** is another powerful tool in ggplot2 that allows you to create multiple subplots based on the values of one or more categorical variables.
+
+-   In other words, for each "group" in your data, ggplot2 can automatically create a separate plot (facet) for that group.
+
+There are two ways to facet:
+
+-   `facet_wrap()`: Creates a series of plots *wrapped* into a grid based on the grouping variable(s).
+-   `facet_grid()`: Creates a *grid* of plots based on the row and column group variable(s).
+
+(i) <u>**`facet_wrap()`**</u>
+
+```{r}
+ggplot(cfb_summary) +
+  aes(x = Team, y = WinPercent) +
+  geom_bar(stat = "identity") +
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "red") +
+  facet_wrap(~ Season)
+```
+
+(ii) <u>**`facet_grid(y ~ x)`**</u>
+
+```{r}
+ggplot(cfb_summary) +
+  aes(x = Season, y = WinPercent) +
+  geom_bar(stat = "identity") +
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "red") +
+  facet_grid(~ Team)
+```
+
+```{r}
+ggplot(cfb_summary) +
+  aes(x = Season, y = WinPercent) +
+  geom_bar(stat = "identity") +
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "red") +
+  facet_grid(Team ~ .)
+```
+
+Note that we need to specify `stat = "identity"` in `geom_bar()` above since we are directly providing the heights of the bars (i.e., `y = WinPercent`). By default, `geom_bar()` expects to count the number of occurrences of each `x` value itself (see `? geom_bar` for more details).
+
+------------------------------------------------------------------------
+
+**Q**: Before running the code chunk below, think to yourself what the following code would produce:
+
+```{r}
+ggplot(cfb_summary) +
+  aes(x = Team, y = WinPercent) +
+  geom_bar(stat = "identity") +
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "red") +
+  facet_grid(~ Season)
+```
+
+#### Fancier Faceting
+
+To demonstate the full power of faceting, we often need to first reformat (or reshape) our data into *longer* format.
+
+-   See [Tidyr Pivoting Tutorial](https://tidyr.tidyverse.org/articles/pivot.html) for more details on reshaping data
+-   Idea: think of a *longer* format dataset as one where each point we want to plot gets its own row
+
+![](../../_site/images/pivoting.png){fig-align="center" width=60%}
+
+For our example, let us create a *long* format version of our summary dataset, where we have a single `Quarter` column and a corresponding `AvgPoints` column with the average points scored for and against each team per season.
+
+```{r}
+cfb_subset_long <- cfb_subset |> 
+  # keep only the listed columns
+  select(
+    Season, Team, Q1, Q2, Q3, Q4, OppQ1, OppQ2, OppQ3, OppQ4
+  ) |> 
+  # reshape data from wide to long format
+  pivot_longer(
+    cols = -c(Season, Team),
+    names_to = "metric",
+    values_to = "Points"
+  ) |> 
+  # rename columns and create indicator column for Team vs Opponent Points
+  mutate(
+    Quarter = case_when(
+      metric %in% c("Q1", "OppQ1") ~ "Q1",
+      metric %in% c("Q2", "OppQ2") ~ "Q2",
+      metric %in% c("Q3", "OppQ3") ~ "Q3",
+      metric %in% c("Q4", "OppQ4") ~ "Q4",
+      TRUE ~ "Game"
+    ),
+    Who = ifelse(str_detect(metric, "Opp"), "Opponent", "Team")
+  ) |> 
+  # keep only 2024-2025 seasons data for simplicity
+  filter(Season %in% c(2024, 2025))
+cfb_subset_long
+```
+
+Using this longer-formatted dataset, let's examine the points scored for and against each team per quarter.
+
+(i) <u>**`facet_wrap()`**</u>
+
+```{r}
+ggplot(cfb_subset_long) +
+  aes(x = Who, y = Points) +
+  geom_boxplot() +
+  facet_wrap(~ Team + Quarter)
+```
+
+```{r}
+ggplot(cfb_subset_long) +
+  aes(x = Who, y = Points) +
+  geom_boxplot() +
+  facet_wrap(~ Quarter + Team)
+```
+
+(i) <u>**`facet_grid(y ~ x)`**</u>
+
+```{r}
+ggplot(cfb_subset_long) +
+  aes(x = Who, y = Points) +
+  geom_boxplot() +
+  facet_grid(Quarter ~ Team)
+```
+
+```{r}
+ggplot(cfb_subset_long) +
+  aes(x = Who, y = Points) +
+  geom_boxplot() +
+  facet_grid(Team ~ Quarter)
+```
+
+------------------------------------------------------------------------
+
+**Q**: Before running the code chunk below, what do you think the following code would produce?
+
+```{r}
+ggplot(cfb_subset_long) +
+  aes(x = Who, y = Points) +
+  geom_boxplot() +
+  facet_grid(Quarter ~ Team + Season)
+```
+
+### `Patchwork`: Combining Multiple ggplots
+
+`patchwork` is an R package that makes it easy to combine multiple ggplots into a single layout.
+
+Given any collection of ggplots, we can use patchwork's `wrap_plots()` to combine them into a single visualization.
+
+```{r fig.width=10}
+# generate example plots
+points_plt <- ggplot(cfb_summary) +
+  aes(x = Season, y = AvgPoints, color = Team) +
+  geom_line() +
+  labs(title = "Average Points per Season")
+win_plt <- ggplot(cfb_summary) +
+  aes(x = Season, y = WinPercent, fill = Team) +
+  facet_grid(Team ~ .) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Winning Percentage per Season")
+
+wrap_plots(points_plt, win_plt, nrow = 1, guides = "collect")
+```
+
+In the above example, we created two ggplots (`points_plt` and `win_plt`) and combined them side-by-side using `patchwork::wrap_plots()`. Note that setting `guides = "collect"` combines the legends from both plots into a single legend.
+
+Conveniently, `wrap_plots()` also accepts a list of plots as input. For example,
+
+```{r fig.width=10}
+plt_ls <- list()
+for (var in c("AvgQ1", "AvgQ2", "AvgQ3", "AvgQ4")) {
+  plt_ls[[var]] <- ggplot(cfb_summary) +
+    aes(x = Season, y = .data[[var]], color = Team) +
+    geom_line() +
+    labs(title = paste("Average Points in", var, "per Season"))
+}
+
+wrap_plots(plt_ls, ncol = 2, guides = "collect")
+```
+
+`patchwork` also makes it easy to adjust the theme and other aspects of each plot in the combined layout using `&`. For example, the code below will set apply the specified theme and color scale to all plots in the patchwork layout.
+
+```{r fig.width=10}
+wrap_plots(plt_ls, ncol = 2, guides = "collect") &
+  scale_color_manual(
+    values = c("Notre Dame" = "#0C2340", "Arkansas" = "#9D2235")
+  ) &
+  theme_classic()
+```
+
+### `Plotly`: Interactive ggplots
+
+Finally, `plotly` is a package (in R and Python) that allows you to create interactive visualizations. We won't cover it in detail here, except to mention that `plotly` has a convenient function `ggplotly()` that can convert any ggplot into an interactive plotly visualization with just one line of code.
+
+```{r}
+plt <- ggplot(cfb_summary) +
+  aes(x = Season, y = WinPercent, color = Team) +
+  geom_point(size = 3) +
+  geom_line(linewidth = 1) +
+  scale_color_manual(
+    values = c("Notre Dame" = "#0C2340", "Arkansas" = "#9D2235")
+  )
+ggplotly(plt)
+```
+
+This enables interactive features such as hovering, zooming, and panning. Try clicking and dragging on the plot above! Also, try clicking on the legend labels to toggle the visibility of each team's data.
+
+`plotly` also makes it easy to add additional information to the hover text using the `aes(label = ...)` option. For example, we can add the average points scored per season to the hover text as follows:
+
+```{r}
+plt <- ggplot(cfb_summary) +
+  aes(x = Season, y = WinPercent, color = Team, label = AvgPoints) +
+  geom_point(size = 3) +
+  geom_line(linewidth = 1) +
+  scale_color_manual(
+    values = c("Notre Dame" = "#0C2340", "Arkansas" = "#9D2235")
+  )
+ggplotly(plt)
+```
+
+## Final Remarks
+
+-   Best way to learn ggplot2 is to practice, practice, practice! Use it for your own data visualizations.
+-   Don't be afraid to Google (or use ChatGPT) and look up the documentation. The ggplot2 documentation is very comprehensive and helpful.
+-   Don't give up!

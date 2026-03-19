@@ -1,0 +1,835 @@
+---
+title: "Quickstart to using the CRC"
+author: "Prof. Tiffany Tang"
+date: today
+format: 
+  html:
+    code-fold: show
+    code-summary: "Show Code"
+    code-tools: true
+    theme: sandstone
+    lightbox: true
+    embed-resources: true
+    callout-icon: false
+toc: true
+execute: 
+  warning: false
+  message: false
+---
+
+:::{.callout-caution title="README"}
+**When in doubt, check the CRC documentation: <https://docs.crc.nd.edu/index.html>**
+:::
+
+## Logging in
+
+:::{.callout-warning title="Logging into the CRC"}
+
+To log in to the CRC, you will need your ND NetID and password.
+
+1.  Open your terminal.
+2.  To connect to a CRC front-end machine (there are two machines), type one of the following commands in your terminal:
+
+    -  `ssh <NetID>@crcfe01.crc.nd.edu`
+    -  `ssh <NetID>@crcfe02.crc.nd.edu`
+    
+3.  When prompted, enter your ND NetID password.
+
+:::
+    
+When you first connect, you are logged onto a shared login node.
+
+- **DO NOT DO ANY HEAVY COMPUTATION HERE**. This is a shared resource and should only be used for light tasks like editing files, submitting jobs, etc.
+- From the CRC docs: "Small processing which is not disruptive/resource intensive can be done on the front ends. This is normally pre-processing or post-processing after completion of UGE jobs."
+
+You can only access the CRC servers (and many other resources/docs) if you are connected to the ND network.
+
+- If you are off-campus, you need to connect to the campus VPN to access these resources.
+- For more information on connecting to the campus VPN, see here:
+<https://inside.nd.edu/task/all/campus-vpn---students>
+
+## Transferring files
+
+There are several ways to transfer files to and from your local machine and the CRC.
+For our purposes, we will primarily use `scp` and GitHub.
+
+-  It's easiest to clone your GitHub repository on the CRC and then pull/push changes as needed.
+-  For all other files that aren't tracked by Git (e.g., big data/results files), you can use `scp` to transfer files.
+    -  `scp` ("secure copy") is a command-line tool for copying files securely between computers.
+
+:::{.callout-warning title="Cloning a GitHub repository on the CRC"}
+To clone a GitHub repository on the CRC, type the following command in your terminal:
+
+```bash
+cd /path/to/destination
+git clone <repository URL>
+```
+
+Examples:
+
+-  To clone our course GitHub repository:
+
+    ```bash
+    cd /path/to/destination
+    git clone https://github.com/tiffanymtang/dsip-s26.git
+    ```
+    
+-  To clone your own course GitHub repository:
+
+    ```bash
+    cd /path/to/destination
+    git clone https://github.com/<Your GitHub Username>/dsip.git
+    ```
+    
+    <details>
+    <summary>Fixing Password Authentication Error</summary>
+    If you run into a password authentication error when trying to clone a private GitHub repository on the CRC, you can resolve the issue by creating a personal access token (PAT), following the steps below:
+    
+    1.  Go to your GitHub home page (<github.com>).
+    2.  Click on your icon (top right) and then "Settings".
+    3.  On the left sidebar, click on "Developer Settings" > "Personal access tokens" > "Tokens (classic)".
+    4.  Click on "Generate new token" > "Generate new token (classic)".
+    5.  In the "Note" field, give your token a descriptive name (e.g., "crc").
+    6.  Select an expiration date. (If you want, you can set the expiration to "no expiration" and use this as your general token for any time you run into a password authentication error.)
+    7.  Select scopes (or what this token will allow you to access/do). I would recommend selecting "repo" (and all of its subitems), "workflow", "gist", and "user".
+    8.  Click "Generate token". This should generate a long string of letters and numbers. This is your personal access token (PAT). Save that PAT somewhere safe. If you lose this PAT, you will have to re-generate a new one.
+    
+    You should now be able to use that PAT in lieu of your GitHub password in command line. That is, when prompted in command line to input your password, copy and paste the PAT instead of using your GitHub login password. More information about PATs can be found [here](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-personal-access-token-classic)
+    </details>
+
+:::
+
+:::{.callout-warning title="Transferring files with `scp`"}
+To transfer an individual **file**:
+
+-  From your local machine to the CRC:
+
+    ```bash
+    scp /path/to/local/file <NetID>@crcfe01.crc.nd.edu:/path/to/destination
+    ```
+    
+    e.g., to copy `file.txt` to your CRC home directory:
+    
+    ```bash
+    scp file.txt ttang4@crcfe01.crc.nd.edu:/users/ttang4/
+    ```
+
+-  From the CRC to your local machine:
+
+    ```bash
+    scp <NetID>@crcfe01.crc.nd.edu:/path/to/file /path/to/destination
+    ```
+    
+    e.g., to copy `file.txt` to your current working directory on your local machine:
+    
+    ```bash
+    scp ttang4@crcfe01.crc.nd.edu:/users/ttang4/file.txt .
+    ```
+    
+To transfer an entire **directory**, use the `-r` flag:
+
+-  From your local machine to the CRC:
+
+    ```bash
+    scp -r /path/to/local/directory <NetID>@crcfe01.crc.nd.edu:/path/to/destination
+    ```
+
+-  From the CRC to your local machine:
+
+    ```bash
+    scp -r <NetID>@crcfe01.crc.nd.edu:/path/to/directory /path/to/destination
+    ```
+
+:::
+
+## Running jobs on the CRC
+
+The CRC uses a job scheduler to manage resources and job queues. 
+Think of a job as a script that you want to run on the CRC.
+What are the main steps to run a job on the CRC?
+
+1.  Write a script (.R/.py file) that you want to run.
+2.  Make sure the necessary dependencies (packages, conda, quarto, etc.) are installed.
+3.  Write a job submission script.
+4.  Submit the job to the CRC.
+5.  Monitor the job's progress.
+
+Walking through each of these steps in turn next...
+
+### Write a script
+
+You can write your script in any text editor on the CRC.
+Alternatively (and preferably), you can do all of your code development locally, push to your GitHub repository, and pull the changes on the CRC.
+
+For this demonstration, we will be running a simple script that runs leave-one-out cross-validation using a random forest, applied to the TCGA breast cancer dataset.
+See either the `scripts/parallel_example.R` or `scripts/parallel_example.py` files in the course GitHub repository for the full script.
+
+### Install dependencies
+
+Installing dependencies on the CRC can be done in a similar way to how you would install them on your local machine (e.g., using `install.packages(...)` in R or `pip/conda install ...` in Python).
+However, if we have setup a reproducible environment tool like `renv` in R or `conda` in Python, this makes our life much easier.
+
+Since installing these dependencies can be somewhat time-consuming, let's run this inside an interactive node (instead of the login node) to be considerate of others.
+To launch an interactive job, you can use the `qlogin` command:
+
+```bash
+qlogin
+```
+
+:::{.callout-warning title="Installing dependencies"}
+
+:::{.panel-tabset}
+
+#### R
+
+1.  Load in the R module by typing the following in your terminal:
+
+    ```bash
+    module load R
+    ```
+    
+2.  If you haven't already installed `renv` on your CRC's R, you can do so by:
+   
+    a. Open R by typing the following in your terminal:
+        
+        ```bash
+        R
+        ```
+        
+    b. Install the `renv` package by typing the following in R:
+
+        ```r
+        install.packages("renv")
+        ```
+        
+    c. Exit R by typing `q()`.
+
+3.  If you have set up an `renv` environment, navigate to your project directory and restore the `renv` environment:
+
+    a. Navigate to your desired project directory, e.g.,
+    
+        ```bash
+        cd /path/to/parallelization
+        ```
+        
+    a. Open R by typing the following in your terminal:
+        
+        ```bash
+        R
+        ```
+        
+    b. Restore the `renv` environment by typing the following in R:
+
+        ```r
+        renv::restore()
+        ```
+        
+    c. Exit R by typing `q()`.
+    
+If the `renv` environment was restored successfully, we are all ready to go!
+
+If you launched an interactive job, you can now stop the job by typing `exit` in your terminal.
+
+#### Python
+
+1.  If you have used conda on the CRC before, skip to step 2. If you have never used conda on the CRC, you first need to perform some initial setup to set up conda (only need to do once). In your CRC terminal, run the following commands:
+
+    ```bash
+    module load conda
+    conda init
+    source ~/.bashrc
+    module unload conda
+    ```
+
+2.  Load in the python and conda modules by typing the following in your terminal:
+
+    ```bash
+    module load python
+    module load conda
+    ```
+    
+3.  If you have set up a conda lock file, navigate to your project directory and restore the conda environment from that lock file:
+
+    a. Navigate to your desired project directory, e.g.,
+    
+        ```bash
+        cd /path/to/parallelization
+        ```
+        
+    b. Install `conda-lock` if you haven't already by typing the following in your terminal:
+
+        ```bash
+        pip install conda-lock
+        ```
+        
+    c. Re-create the conda environment by typing the following in your terminal:
+
+        ```bash
+        conda-lock install --name YOUR_ENV_NAME
+        ```
+        
+If the `conda` environment was restored successfully, we are all ready to go!
+
+:::
+
+:::
+
+### Write a job submission script
+
+Writing the job submission script is probably the "newest" part of this process.
+This script essentially tells the CRC what resources you need and how to run the job.
+
+For our purposes, we will use the generic job submission scripts provided in the course GitHub repository.
+More specifically, we will start by using the `submit_r_job.sh` and `submit_python_job.sh` scripts in the `parallelization/job_scripts` directory to run R and python scripts, respectively.
+
+Typically, these job submission scripts will have the following structure:
+
+1.  Specify the resources you need (e.g., number of cores).
+2.  Load the necessary modules.
+3.  Run the script you want to run.
+
+:::{.panel-tabset}
+
+#### R
+
+![](../../../_site/images/job_submission_script_r.png)
+
+#### Python
+
+![](../../../_site/images/job_submission_script_python.png)
+
+:::
+
+Notes:
+
+-  Should change `-M` argument to your email address.
+-  Should change `-N` argument to an informative name for your job.
+-  `${1}` is the first argument passed to the job submission script and serves as a placeholder for the name of the script you want to run. 
+    -  This is so that you don't have to write a new `.sh` file for every script you want to run.
+    
+Helpful CRC documentation:
+
+-  [Batch submission scripts with more examples](https://docs.crc.nd.edu/new_user/submitting_batch_jobs.html#submitting-batch-jobs)
+-  [Available CRC machines/resources](https://docs.crc.nd.edu/infrastructure/resources.html)
+
+
+### Submit the job to the CRC
+
+:::{.callout-warning title="Submitting a job"}
+
+To submit your job, you will use the `qsub` command followed by the name of the job submission script:
+
+```bash
+qsub <job_submission_script.sh>
+```
+
+You can also add or overwrite the job submission options in the command line. 
+For example,
+
+```bash
+qsub -N new_job_name -pe smp 2 <job_submission_script.sh>
+```
+
+would overwrite the job name to `new_job_name` and request 2 cores regardless of what was originally specified in `<job_submission_script.sh>`.
+
+As an example, 
+
+-  To run the `parallel_example.R` script using the generic R job submission script `submit_r_job.sh` and 2 (instead of 24) cores, you would navigate to the `parallelization/job_scripts` directory and type the following in your terminal:
+
+    ```bash
+    qsub -N parallel_example -pe smp 2 submit_r_job.sh scripts/parallel_example
+    ```
+
+-  To run the `parallel_example.py` script using the generic Python job submission script `submit_python_job.sh` and 2 (instead of 24) cores, you would navigate to the `parallelization/job_scripts` directory and type the following in your terminal:
+
+    ```bash
+    qsub -N parallel_example -pe smp 2 submit_python_job.sh scripts/parallel_example
+    ```
+
+:::
+
+### Monitor the job's progress
+
+To monitor the job submission status, you can use the `qstat` command:
+
+```bash
+qstat -u $USER
+```
+
+This will show all of the jobs in the queue or running that are submitted by you.
+
+After the job has finished running, you can check the output file to see the results.
+By default, the output file will be named `<job_name>.o<job_id>`, where `<job_name>` is the name of the job and `<job_id>` is the job's ID.
+
+If you want to see more detailed information about the behavior of your job processes *while* they are running, you can use use the [Xymon GUI Tool](https://mon.crc.nd.edu/xymon/).
+All you need to do is click on the link to the CRC machine that your job is running on.
+To figure out which machine your job is running on, you can use the `qstat` command. 
+Look for the column that looks something like `long@d32cepyc204.crc.nd.edu`
+
+### Summary
+
+To summarize, the main steps to run a job on the CRC are:
+
+**Preliminary set up**
+
+1.  Write a script that you want to run.
+    - See `scripts/parallel_example.R` (or `.py`) for examples
+2.  Install the necessary dependencies.
+3.  Write a job submission script.
+    - See `job_scripts/submit_r_job.sh` (or `_python_`) for examples
+
+**Running the job**
+
+4.  Submit the job to the queue:
+
+    ```bash
+    qsub <job_submission_script.sh>
+    ```
+    
+5.  Monitor the job's progress:
+    
+    ```bash
+    qstat -u $USER
+    ```
+    
+    or check on the [Xymon GUI Tool](https://mon.crc.nd.edu/xymon/).
+
+## Most common mistakes
+
+1.  Be sure that you are in the desired directory when you submit your job. 
+    -  If you are not in the correct directory, the job will not be able to find the script you want to run, or the script may not be able to access the necessary data files.
+2.  Don't forget to save the job's outputs/results to a file. If you don't, these results will disappear once the job is finished running.
+3.  Make sure you are requesting the correct number of cores. 
+    -  If you request more cores than what your script uses, you are wasting resources.
+    -  If you request fewer cores than what your script uses, your job might run into weird resource errors.
+4.  Double check that all of your dependencies are installed.
+5.  Make sure you are submitting the job from a login node.
+
+Before submitting a large job, it is a good idea to test your job submission script with a small test job to make sure everything is working as expected (e.g., use 2 cores instead of 24 cores).
+
+## Other helpful commands and resources
+
+-  Managing modules:
+    -  To load a module, you can use the `module load` command followed by the module name.
+    -  To unload a module, you can use the `module unload` command followed by the module name.
+    -  To see a list of all available modules, you can use the `module avail` command.
+    -  To see which modules you have loaded, you can use the `module list` command.
+    -  More information about modules on the CRC can be found [here](https://docs.crc.nd.edu/popular_modules/modules.html).
+
+-  If you need to delete a job from the queue, you can use the `qdel` command followed by the job ID:
+
+    ```bash
+    qdel <job_id>
+    ```
+    
+    The job ID is the first column of the `qstat` output.
+    
+-  To check your current disk usage, you can use the `quota` command:
+
+    ```bash
+    quota
+    ```
+    
+    You are initially allotted 100GB of storage space on the CRC (although it is possible to ask for more (with appropriate justification) and/or request scratch space).
+    
+-  Helpful bash commands:
+
+    - `ls`: list files in the current directory
+    - `ls path/to/directory`: list files in a specific directory
+    - `ls -al`: list all files in the current directory (including hidden files)
+    - `ls -al path/to/director`: list all files in a specific directory (including hidden files)
+    - `cd path/to/directory`: change directory
+    - `pwd`: print current working directory
+    - `rm path/to/file`: remove a file
+    - `rm -r path/to/directory`: remove a directory and all of its contents
+    - `rm -rf path/to/directory`: force remove a directory and all of its contents without prompting
+    - `mv path/to/file path/to/new_location`: move a file
+    - `cp path/to/file path/to/new_location`: copy a file
+    - `man command`: get help on a specific command
+    
+-  `vim` is a popular text editor that can be used directly in command line. 
+    -  To open a file in `vim`, type `vim path/to/file`.
+    -  To edit a file in `vim`, type `i` to enter *insert* mode.
+    -  To exit *insert* mode, press `esc`.
+    -  To save and exit, type `:wq` (w = write, q = quit)
+    -  To exit without saving, type `:q!` (q = quit, ! = force)
+
+## Interactive jobs
+
+We have already seen that you can spurn an interactive job using the `qlogin` command.
+This `qlogin` command will give you access to an interactive compute node.
+You can also request a specific number of cores using: `qlogin -pe smp <num>` flag (e.g., to request 2 cores, you would type `qlogin -pe smp 2`).
+Another way to request an interactive job is to use the `qrsh` command, e.g.,
+
+```bash
+qrsh -q long -pe smp 1
+```
+
+However, rather than working in terminal, it can often be more convenient to work in an interactive R or Python session using VS Code, Positron, RStudio, or Jupyter Labs. 
+We will walkthrough how to use each of these tools on the CRC next.
+
+::: {.panel-tabset}
+
+### VS Code or Positron
+
+To connect to a remote server (e.g., CRC) using VS Code or Positron:
+
+1.  Open VS Code or Positron.
+
+2.  On the left, go to "Extensions" (the tab with the square boxes), and install the `Remote - SSH` extension. This might be installed by default in Positron.
+
+3.  If you are connecting to the CRC for the first time using VS Code or Positron, you will need to add a new SSH host. This step only needs to be done once. To add a new SSH host:
+
+    a.  Click on the `><` icon on the bottom left of the screen.
+    b.  Click on the `Connect to Host...` option.
+    c.  Click on the `Add New SSH Host...` option.
+    d.  Type in `ssh <NetID>@crcfe01.crc.nd.edu` or `ssh <NetID>@crcfe02.crc.nd.edu` in the `Host` field. Hit enter.
+    e.  Select the first option (e.g., `/Users/ttang4/.ssh/config`) that appears in the dropdown menu. This file will be used to store the SSH configuration.
+    
+    We have just added the CRC as a new SSH host.
+    
+4.  To connect to the CRC, we can now:
+
+    a.  Click on the `><` icon on the bottom left of the screen.
+    b.  Click on the `Connect to Host...` option.
+    c.  Click on the `crcfe01.crc.nd.edu` or `crcfe02.crc.nd.edu` option.
+    d.  Enter your ND NetID password when prompted.
+
+Everything you do in VS code will now be done on the CRC!
+
+:::{.callout-warning appearance="simple"}
+Best practice is to start an interactive job in your terminal before running your python code interactively in VS Code or Positron. This way, you can ensure that you are not running heavy computations on the login node.
+
+To start an interactive job, open a new terminal in VS Code or Positron and type `qrsh -q long -pe smp 1` in that terminal.
+Everything you do in that particular terminal will now be run in that interactive job.
+:::
+
+### RStudio
+
+CRC documentation: <https://docs.crc.nd.edu/general_pages/r/rstudio.html#rstudio>
+
+:::{.panel-tabset .nav-pills}
+
+#### Mac Users
+
+1.  Download [`fastX`](https://www.starnet.com/download/fastx-client)
+2.  Open `fastX`. Click on the `+` button (top left) to add a new connection using the following settings:
+    -  Host: `crcfe01.crc.nd.edu` or `crcfe02.crc.nd.edu`
+    -  Username: your ND NetID
+    -  Port: Leave blank
+    -  Name: crc1 or crc2
+3.  Double click on the connection you just created to connect to the CRC.
+4.  Enter your ND NetID password when prompted.
+5.  Click on the `+` button (top left) and then "Ok" to start a new terminal session. You should now be in a terminal session on the CRC.
+6.  In the terminal, load in the RStudio module by typing the following command:
+
+    ```bash
+    module load Rstudio
+    ```
+    
+    Do NOT load the module for `R`. The module for `R` is loaded when `Rstudio` is loaded.
+    
+7.  Open Rstudio by typing the following command in your terminal:
+
+    ```bash
+    rstudio
+    ```
+    
+RStudio should now be open and ready to use!
+
+#### Linux/Window Users
+
+1.  Login to the CRC with the `-X` flag so that the RStudio GUI can load:
+
+    ```bash
+    ssh -X <NetID>@crcfe01.crc.nd.edu
+    ```
+    
+    The `-X` flag enables X11 forwarding, allowing you to run graphical applications on a remote server and display them on your local machine.
+    
+2.  In the terminal, load in the RStudio module by typing the following command:
+
+    ```bash
+    module load Rstudio
+    ```
+    
+    Do NOT load the module for `R`. The module for `R` is loaded when `Rstudio` is loaded.
+    
+7.  Open Rstudio by typing the following command in your terminal:
+
+    ```bash
+    rstudio
+    ```
+    
+RStudio should now be open and ready to use!
+
+:::
+
+
+### Jupyter Labs
+
+This tutorial is adapted from the CRC documentation:
+
+- <https://docs.crc.nd.edu/popular_modules/conda.html#conda>
+- <https://docs.crc.nd.edu/general_pages/j/jupyter.html>
+
+To set up JupyterLab on the CRC, you will need to complete the following steps:
+
+1.  If you have used conda on the CRC before, skip to step 2. If you have never used conda on the CRC, you first need to perform some initial setup to set up conda (only need to do once). In your CRC terminal, run the following commands:
+
+    ```bash
+    module load conda
+    conda init
+    source ~/.bashrc
+    module unload conda
+    ```
+    
+    To verify that conda was successfully installed, type `conda info` in your terminal. It should print out information about the conda installation.
+    
+2.  If you already have an existing conda environment with `jupyterlab` and `ipykernel` installed, you can skip to step 3. Otherwise, follow these steps to create a new conda environment that is compatible with JupyterLab:
+
+    ```bash
+    module load conda
+    conda create --name YOUR_ENV_NAME
+    conda activate YOUR_ENV_NAME
+    conda install jupyterlab
+    conda install ipykernel
+    ```
+    
+3.  Make your conda environment available in JupyterLab by running the following command. You only need to do this one time for each conda environment you want to use in JupyterLab:
+
+    ```bash
+    python -m ipykernel install --user --name=YOUR_ENV_NAME --display-name="YOUR_ENV_NAME"
+    ```
+    
+4.  (Optional) If you would like to run R in JupyterLab, you can set up an R kernel by following these steps. You only need to do this once:
+
+    a.  Load the R module by typing the following in your terminal: `module load R`
+    b.  Open R by typing the following in your terminal: `R`
+    c.  Install the `IRkernel` package by typing the following in R: `install.packages("IRkernel")`
+    d.  Install the R kernel by typing the following in R: `IRkernel::installspec()`
+    e.  Exit R by typing `q()`
+    
+5.  Open a new terminal and `ssh` into the CRC with the `-Y` flag:
+
+    ```bash
+    ssh -Y <NetID>@crcfe01.crc.nd.edu
+    ```
+    
+    The `-Y` flag in ssh enables trusted X11 forwarding. It works similarly to `-X` but bypasses some security restrictions.
+
+6.  Access a compute node by running the following command:
+
+    ```bash
+    qrsh -q long -pe smp 1
+    ```
+    
+7.  Inside the compute node, launch a Jupyter notebook:
+
+    ```bash
+    jupyter lab --no-browser --ip='0.0.0.0'
+    ```
+    
+    You will see something a lot of text with part of it looking like:
+    ```bash
+    To access the server, open this file in a browser:
+        file:///afs/crc.nd.edu/user/t/ttang4/.local/share/jupyter/runtime/jpserver-2636692-open.html
+    Or copy and paste one of these URLs:
+        http://d32cepyc193.crc.nd.edu:8888/lab?token=XXXXX
+        http://127.0.0.1:8888/lab?token=XXXXX
+    ```
+    
+    Note the server name and its port number (e.g., `d32cepyc193.crc.nd.edu:8888`). Also note the token number `XXXXX` (i.e., everything that comes after `token=`)
+    
+8.  Access the Jupyter notebook using SSH tunneling. **On your local machine** and in a separate terminal window, run the following command:
+
+    ```bash
+    ssh <NetID>@crcfe01.crc.nd.edu -L 8888:d32cepyc193.crc.nd.edu:8888 -N
+    ```
+    
+    where `8888:d32cepyc193.crc.nd.edu:8888` is replaced by the `<port>:<server>:<port>` identifiers from step 8. Then enter your password. If there are no errors, the command line will hang. This is normal.
+    
+9.  Open a web browser **on your local machine** and navigate to <http://localhost:8888>. You should see the JupyterLab interface. Enter the token number from step 8 when prompted.
+
+JupyterLab should now be open and ready to use!
+    
+
+:::
+
+## Job Arrays
+
+So far, we have learned how to parallelize tasks (e.g., for loops) within your R/Python script using the `future` package in R or `joblib` in Python.
+In addition to parallelizing tasks within a script, you can also parallelize tasks by submitting multiple jobs to the CRC using **job arrays**. 
+At a high level, **a job array is a collection of jobs that are submitted to the CRC as a single batch.**
+
+As an example, we previously submitted one job to run leave-one-out cross-validation for the random forest model. 
+Now suppose that we also wanted to run a second job to run leave-one-out cross-validation for a different model (e.g., k nearest neighbors).
+While we could submit two separate jobs to the CRC, it is also possible to submit a single job array with two jobs: one job running leave-one-out CV for the random forest model and the other job running leave-one-out CV for the k nearest neighbors model.
+
+To demonstrate how to submit a simple job array, let's implement the aforementioned example, where we want to submit a job array with two jobs:
+
+-  Job 1: Leave-one-out cross-validation for the random forest model
+-  Job 2: Leave-one-out cross-validation for the k nearest neighbors model
+
+and each job will use `C > 1` cores to parallelize the for loop computation.
+
+-  The main R/Python scripts that we will be using are `scripts/parallel_example_with_args.R` (or `.py`).
+    - Note that these scripts are slightly modified versions of the original `parallel_example.R` (or `.py`) scripts. The main difference is that we now allow these scripts to accept a command line argument `--array_id` (or `--model`), which takes in an integer (or character string), indicating whether to use an `"rf"` (if `array_id=1`) or `"knn"` (if `array_id=2`) model.
+
+-  The main job submission scripts that we will be using are `job_scripts/submit_r_job_array.sh` (or `submit_python_job_array.sh`). 
+    - The only addition to these scripts is the `-t` flag, which specifies the range of the job array. Setting `-t 1-2` will submit two jobs to the CRC --- one job with `${SGE_TASK_ID}=1` and a second job with `${SGE_TASK_ID}=2`. (If we wanted to submit 10 jobs (indexed from 1 to 10), we would set `-t 1-10`.)
+    - Note: the job array ID is stored in the environment variable `SGE_TASK_ID`.
+
+To finally submit the job array, we can run the following command in the terminal:
+
+```bash
+# for R users:
+qsub -N parallel_array_example_r -pe smp 2 submit_r_job_array.sh scripts/parallel_example_with_args
+# for Python users:
+qsub -N parallel_array_example_py -pe smp 2 submit_python_job_array.sh scripts/parallel_example_with_args
+```
+
+or 
+
+```bash
+# for R users:
+qsub -N parallel_arrayname_example_r -pe smp 2 submit_r_job_arrayname.sh scripts/parallel_example_with_args
+# for Python users:
+qsub -N parallel_arrayname_example_py -pe smp 2 submit_python_job_arrayname.sh scripts/parallel_example_with_args
+```
+
+Note: the `-pe smp 2` flag is not necessary and is only added to overwrite the original job submission script's request for 24 cores since this is purely for demonstration.
+
+If your tasks do not map directly to a simple integer range, you can also use the `-t` flag to specify a list of tasks to run. For example, `-t 1,3,5,7,9` would run the job with `SGE_TASK_ID=1`, `SGE_TASK_ID=3`, `SGE_TASK_ID=5`, `SGE_TASK_ID=7`, and `SGE_TASK_ID=9`.
+
+**Why use job arrays?**
+
+-  The main advantage of using job arrays is that it allows you to submit multiple jobs at once, essentially parallelizing across possibly many different machines.
+    - Due to how the job scheduler works, your jobs will receive higher priority if you submit it as a single job array than multiple separate jobs.
+-  From the CRC docs: "If you find that you need to frequently submit 50 or more different jobs, we request that you implement those tasks within a job array. Grid engine is able to handle arrays much more efficiently than tens or hundreds of individual scripts from a single user. Fewer individual tasks reduces load on the job scheduler and improves overall performance."
+
+Combining job arrays with parallelization within a script can be a very powerful way to speed up computations.
+This essentially gives you the ability to parallelize your code in two different "axes" or to do some type of nested parallelization strategy without having to modify your code too much.
+
+CRC documentation on job arrays: <https://docs.crc.nd.edu/new_user/quick_start.html#job-arrays>
+
+## Job Dependencies
+
+Sometimes, you may have a set of jobs that depend on each other.
+For example, you may have a job array that fits various models, and you want to run a final job that aggregates the results from all of the models.
+In this case, you would want to make sure that the final job only runs after all of the model-fitting jobs have completed.
+
+To specify these job dependencies, you can use the `-hold_jid` flag, followed by the job ID to wait for, when submitting a job to the CRC. 
+The `driver_r.sh` and `driver_python.sh` scripts show how to do this.
+To run the driver script, you can type in terminal: `sh driver_r.sh` or `sh driver_python.sh`.
+
+## FAQs
+
+:::{.callout-tip title="How to install pandoc on the CRC" collapse=true}
+
+If `pandoc` is not found but is needed (e.g., for rendering R Markdown files), you can try following these steps (note: this has not been tested in a while):
+
+1.  Launch RStudio and find pandoc location used for RStudio via: `Sys.getenv("RSTUDIO_PANDOC")`
+
+2.  Add the pandoc location to your PATH by adding the following line to your `~/.bashrc` file:
+
+    ```bash
+    export RSTUDIO_PANDOC=/path/to/pandoc
+    ```
+    
+    where `/path/to/pandoc` is whatever was returned by `Sys.getenv("RSTUDIO_PANDOC")`.
+    
+3.  Source your `~/.bashrc` file:
+
+    ```bash
+    source ~/.bashrc
+    ```
+    
+4.  Open R (not RStudio) and check that R Markdown can find pandoc via:
+
+    ```r
+    rmarkdown::find_pandoc()
+    ```
+    
+    If it returns a non-empty string, you should be good to go!
+:::
+
+:::{.callout-tip title="How to install quarto on the CRC" collapse=true}
+
+This guide is adapted from the Quarto documentation: <https://quarto.org/docs/download/tarball.html>
+
+In order to install `quarto` on the CRC, you can follow these steps:
+
+1.  Change directories to where you want to install `quarto`, e.g.,
+
+    ```bash
+    mkdir -p ~/Software
+    cd ~/Software
+    ```
+
+2.  Download the latest Quarto tarball from the Quarto website by typing the following in your CRC terminal:
+
+    ```bash
+    wget https://github.com/quarto-dev/quarto-cli/releases/download/v1.6.42/quarto-1.6.42-linux-amd64.tar.gz
+    ```
+    
+3.  Unpack the tarball by typing the following in your CRC terminal:
+
+    ```bash
+    tar -xvzf quarto-1.6.42-linux-amd64.tar.gz
+    ```
+    
+    You can now delete the tarball by typing the following in your CRC terminal:
+
+    ```bash
+    rm quarto-1.6.42-linux-amd64.tar.gz
+    ```
+    
+4.  Create a [symbolic link](https://en.wikipedia.org/wiki/Symbolic_link) (symlink) to the `quarto` executable by typing the following in your CRC terminal:
+
+    ```bash
+    mkdir -p ~/.local/bin
+    ln -s ~/Software/quarto-1.6.42/bin/quarto ~/.local/bin/quarto
+    ```
+    
+    This will create a symlink to the `quarto` executable in your `~/.local/bin` directory, which points to the actual `quarto` executable in the `quarto-1.6.42` directory.
+    
+5.  Check whether or not the `quarto` installation is findable by typing the following in your CRC terminal:
+
+    ```bash
+    quarto --version
+    ```
+    
+    If the installation was successful, you should see the version of `quarto` that you installed. Otherwise, you will see an error message, most likely saying that the command `quarto` was not found. If this is the case, we need to add the `~/.local/bin` directory to your `PATH` environment variable. To do this:
+    
+    a.  Open your `~/.bashrc` file, e.g., by typing the following in your CRC terminal:
+
+        ```bash
+        vim ~/.bashrc
+        ```
+        
+    b.  Add the following line to the end of the file:
+
+        ```bash
+        export PATH=$PATH:~/.local/bin
+        ```
+        
+        [If you are using `vim`, press `i` to enter insert mode, scroll down to the bottom of the file, type the line, and then press `esc` followed by `:wq` to save and exit.]
+        
+    c.  Source your `~/.bashrc` file by typing the following in your CRC terminal:
+
+        ```bash
+        source ~/.bashrc
+        ```
+        
+    d.  Check whether or not the `quarto` installation is findable by typing the following in your CRC terminal:
+
+        ```bash
+        quarto --version
+        ```
+        
+        If the installation was successful, you should see the version of `quarto` that you installed.
+        
+You should now be able to render Quarto documents on the CRC!
+:::
+

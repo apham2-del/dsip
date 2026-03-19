@@ -1,0 +1,31 @@
+---
+title: "Lab 3 - Cloud Prediction"
+author: "Insert Name Here"
+date: today
+format: 
+  html:
+    code-fold: true
+    code-summary: "Show Code"
+    code-tools: true
+    theme: sandstone
+    lightbox: true
+    embed-resources: true
+jupyter: python3
+execute: 
+  warning: false
+  message: false
+---
+
+```{python setup}
+import sys
+sys.path.append("..")
+
+from os.path import join as oj
+
+DATA_PATH = oj("..", "data")
+```
+
+# Exploratory Data Analysis
+
+# Prediction Modeling
+

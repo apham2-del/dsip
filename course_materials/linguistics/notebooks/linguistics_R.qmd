@@ -1,0 +1,653 @@
+---
+title: "Linguistics Lab"
+author: "Prof. Tiffany Tang"
+date: "`r Sys.Date()`"
+format: 
+  html:
+    code-fold: show
+    code-summary: "Show Code"
+    code-tools: true
+    theme: sandstone
+    # theme: cerulean
+    embed-resources: true
+    lightbox: true
+toc: true
+number-sections: true
+execute: 
+  warning: false
+  message: false
+---
+
+```{r setup, include=FALSE}
+here::i_am("notebooks/linguistics_R.qmd")
+
+# source all functions from R/ folder
+for (fname in list.files(here::here("R"), pattern = "*.R")) {
+  source(here::here(file.path("R", fname)))
+}
+
+# path to data
+DATA_PATH <- here::here("data")
+
+set.seed(331)
+```
+
+# README
+
+In this notebook, we will walk through an unsupervised learning case study based upon a linguistics survey dataset. The dataset contains responses to a survey with 67 questions, where each question has a set of possible responses indicating how a person typically speaks. The goal is to explore this linguistics survey data and to identify dialects, or groups of people who speak similarly, in the United States. Understanding such variation in languages/dialects can provide insights into historical, social, and geographical factors that have molded society over time.
+
+# Load Data
+
+There are two main datasets that we will be working with:
+
+-   `qa_key`: contains survey question and answer key
+-   `ling_orig`: contains the linguistics survey response data + the location of the survey respondant
+
+To begin, let's load in the data.
+
+```{r load-data}
+# load in data
+qa_key <- load_q_and_a_key(DATA_PATH)
+ling_orig <- load_ling_data(DATA_PATH)
+```
+
+Next, taking a quick look at the data...
+
+::: panel-tabset
+#### Q and A Data
+
+```{r}
+qa_key
+skimr::skim(qa_key)
+```
+
+#### Linguistics Data
+
+```{r}
+ling_orig
+skimr::skim(ling_orig)
+```
+:::
+
+
+# Data Explorations
+
+Let's take a look at some of the survey questions and responses.
+
+To get you started, here is some code to plot a map of the survey respondents and their responses to a single question (here, question 50). \[Note: all plotting functions can be found in the `R/plot.R` file.\]
+
+**Play around with the `qid` below to explore different questions.**
+
+```{r}
+plt <- plot_ling_map(ling_orig, qa_key, qid = 50)
+plotly::ggplotly(plt)
+```
+
+If you would like to look at the responses to multiple questions side-by-side, here is some code to help you do this.
+
+**Play around with the `qids` below to explore different questions side-by-side.**
+
+```{r}
+#| fig-width: 16
+#| fig-height: 12
+#| column: page
+
+qids <- c(80, 73, 110, 65)
+plt_ls <- list()
+for (qid in qids) {
+  plt_ls[[as.character(qid)]] <- plot_ling_map(
+    ling_orig, qa_key, qid = qid
+  )
+}
+plt <- patchwork::wrap_plots(plt_ls)
+plt
+```
+
+::: {.callout-note title="More on EDA" collapse="true"}
+
+Are there other ways that you'd like to visualize this data (before proceeding to dimension reduction)?
+
+Two possibly interesting refinements to the above visualizations are:
+
+1.  There are lots of categories with very few responses. What if we collapse these rare responses into an "other" category to simplify the visualization?
+
+```{r}
+# collapse responses with <5% of responses into "other" category
+# can change `min_prop` to a different value
+collapsed_out <- collapse_survey_responses(ling_orig, qa_key, min_prop = 0.05)
+collapsed_ling_df <- collapsed_out$ling_data
+collapsed_qa_key <- collapsed_out$qa_key
+```
+
+```{r}
+#| fig-width: 16
+#| fig-height: 12
+#| column: page
+
+qids <- c(80, 73, 110, 65)
+plt_ls <- list()
+for (qid in qids) {
+  plt_ls[[as.character(qid)]] <- plot_ling_map(
+    collapsed_ling_df, collapsed_qa_key, qid = qid
+  )
+}
+plt <- patchwork::wrap_plots(plt_ls)
+plt
+```
+
+2.  Visualizing each survey data point may introduce some visual bias towards regions with more responses. Here is a visualization showing the most popular response per county.
+
+```{r}
+#| fig-width: 16
+#| fig-height: 12
+#| column: page
+
+qids <- c(80, 73, 110, 65)
+plt_ls <- list()
+for (qid in qids) {
+  plt_ls[[as.character(qid)]] <- plot_ling_map_by_county(
+    collapsed_ling_df, collapsed_qa_key, qid = qid
+  )
+}
+plt <- patchwork::wrap_plots(plt_ls)
+plt
+```
+
+:::
+
+# Dimension Reduction
+
+Instead of examining each survey question one-by-one, we can use dimension reduction techniques to summarize all 67 questions into a few dimensions. This will allow us to more easily visualize the survey data in a lower-dimensional space and potentially identify patterns in the data that are not immediately obvious from just a single survey question.
+
+## Principal Components Analysis
+
+Let's start with arguably the most popular and simple dimension reduction technique - principal components analysis (PCA) using `prcomp()`.
+
+If we apply PCA directly to our raw linguistics survey data:
+
+```{r}
+# do PCA
+X <- get_X_matrix(ling_orig)
+orig_pca_out <- prcomp(X)
+orig_scores <- as.data.frame(orig_pca_out$x)
+pve1 <- orig_pca_out$sdev^2 / sum(orig_pca_out$sdev^2)
+```
+
+We visualize the results of PCA below:
+
+- PCA (uncolored): the traditional PC plot (PC1 versus PC2)
+- PCA (colored): the same PC plot but colored by latitude (left) and longitude (right)
+- Map: each respondant is plotted on the US map according to their reported latitude and longitude and colored by their PC1 score (left) and PC2 score (right); we view the results at the individual level (top) and aggregated at the county level (bottom)
+
+Note these plots all contain the same information, but are plotted in different ways.
+
+::: {.panel-tabset}
+
+### PCA (uncolored)
+```{r}
+#| echo: false
+#| fig-width: 12
+
+plot_dr_scatter(orig_scores, components = 1:2)
+```
+
+### PCA (colored by location)
+```{r}
+#| echo: false
+#| fig-width: 12
+
+pca_plt1 <- plot_dr_scatter(
+  orig_scores, components = 1:2, color = get_location(ling_orig, "lat")
+) +
+  ggplot2::labs(color = "Latitude")
+pca_plt2 <- plot_dr_scatter(
+  orig_scores, components = 1:2, color = get_location(ling_orig, "long")
+) +
+  ggplot2::labs(color = "Longitude")
+patchwork::wrap_plots(pca_plt1, pca_plt2)
+```
+
+### Map
+```{r}
+#| echo: false
+#| fig-width: 12
+
+plot_dr_map(orig_scores, ling_orig)
+```
+
+### Map (by county)
+```{r}
+#| echo: false
+#| fig-width: 12
+
+plot_dr_map(orig_scores, ling_orig, by_county = TRUE)
+```
+
+:::
+
+Did we find meaningful clusters? Let's take a look at the top PC loadings:
+
+```{r}
+as.data.frame(orig_pca_out$rotation) |> 
+  tibble::rownames_to_column("question") |> 
+  dplyr::mutate(
+    dplyr::across(
+      tidyselect::starts_with("PC"),
+      function(x) {
+        data.frame(
+          question = question,
+          loading = x,
+          value = sprintf("%s (%.2f)", question, x)
+        ) |> 
+          dplyr::arrange(-abs(loading)) |> 
+          dplyr::pull(value)
+      }
+    )
+  ) |> 
+  dplyr::select(PC1:PC5) |> 
+  head()
+```
+
+
+From the PC loadings, we see that the first PC puts a very high weight on Q59. Coloring the points in the PC plot by Q059 shows:
+
+```{r}
+#| fig-width: 12
+
+plot_dr_scatter(
+  orig_scores, components = 1:2, 
+  color = get_answers(ling_orig$Q059, 59, qa_key)
+) +
+  ggplot2::labs(color = "Q059")
+```
+
+
+Why is the first PC picking up Q59?
+
+Let's try normalizing the X so that all the questions are on the same scale:
+
+```{r}
+scaled_pca_out <- prcomp(X, scale = TRUE)
+scaled_scores <- as.data.frame(scaled_pca_out$x)
+pve2 <- scaled_pca_out$sdev^2 / sum(scaled_pca_out$sdev^2)
+```
+
+::: {.panel-tabset}
+
+### PCA (uncolored)
+```{r}
+#| echo: false
+#| fig-width: 12
+
+plot_dr_scatter(scaled_scores, components = 1:2)
+```
+
+### PCA (colored by location)
+```{r}
+#| echo: false
+#| fig-width: 12
+
+pca_plt1 <- plot_dr_scatter(
+  scaled_scores, components = 1:2, color = get_location(ling_orig, "lat")
+) +
+  ggplot2::labs(color = "Latitude")
+pca_plt2 <- plot_dr_scatter(
+  scaled_scores, components = 1:2, color = get_location(ling_orig, "long")
+) +
+  ggplot2::labs(color = "Longitude")
+patchwork::wrap_plots(pca_plt1, pca_plt2)
+```
+
+### Map
+```{r}
+#| echo: false
+#| fig-width: 12
+
+plot_dr_map(scaled_scores, ling_orig)
+```
+
+### Map (by county)
+```{r}
+#| echo: false
+#| fig-width: 12
+
+plot_dr_map(scaled_scores, ling_orig, by_county = TRUE)
+```
+
+:::
+
+But this still doesn't show much of a pattern with the geography of the US, which we would expect from our EDA. Why?
+
+How can we fix this issue?
+
+```{r}
+ling_ohe_df <- ling_orig # TODO: replace line with correct answer
+X <- get_X_matrix(ling_ohe_df)
+ohe_pca_out <- prcomp(X)
+ohe_scores <- as.data.frame(ohe_pca_out$x)
+pve3 <- ohe_pca_out$sdev^2 / sum(ohe_pca_out$sdev^2)
+```
+
+::: {.panel-tabset}
+
+### PCA (uncolored)
+```{r}
+#| echo: false
+#| fig-width: 12
+
+plot_dr_scatter(ohe_scores, components = 1:2)
+```
+
+### PCA (colored by location)
+```{r}
+#| echo: false
+#| fig-width: 12
+
+pca_plt1 <- plot_dr_scatter(
+  ohe_scores, components = 1:2, color = get_location(ling_orig, "lat")
+) +
+  ggplot2::labs(color = "Latitude")
+pca_plt2 <- plot_dr_scatter(
+  ohe_scores, components = 1:2, color = get_location(ling_orig, "long")
+) +
+  ggplot2::labs(color = "Longitude")
+patchwork::wrap_plots(pca_plt1, pca_plt2)
+```
+
+### Map
+```{r}
+#| echo: false
+#| fig-width: 12
+
+plot_dr_map(ohe_scores, ling_orig)
+```
+
+### Map (by county)
+```{r}
+#| echo: false
+#| fig-width: 12
+
+plot_dr_map(ohe_scores, ling_orig, by_county = TRUE)
+```
+
+:::
+
+What is the dominating the variation explained in the first PC1 now? 
+
+```{r}
+as.data.frame(ohe_pca_out$rotation) |> 
+  tibble::rownames_to_column("question") |> 
+  dplyr::mutate(
+    dplyr::across(
+      tidyselect::starts_with("PC"),
+      function(x) {
+        data.frame(
+          question = question,
+          loading = x,
+          value = sprintf("%s (%.2f)", question, x)
+        ) |> 
+          dplyr::arrange(-abs(loading)) |> 
+          dplyr::pull(value)
+      }
+    )
+  ) |> 
+  dplyr::select(PC1:PC5) |> 
+  head()
+```
+
+```{r}
+#| fig-width: 12
+
+num_nas <- rowSums(get_X_matrix(ling_orig) == 0)
+hist(num_nas)
+
+plot_dr_scatter(ohe_scores, components = 1:2, color = num_nas) +
+  ggplot2::labs(color = "Number of\nMissing Responses")
+```
+
+Let's revise our data cleaning procedure and remove people who left too many questions unanswered, remove the columns corresponding to NA responses, and do PCA. We'll color the points by their latitude/longitude.
+
+```{r}
+# remove samples with too few answers
+ling_df_cleaned <- remove_samples(ling_orig, min_answers = 50)
+# remove_zeros removes the columns corresponding to NA responses
+ling_ohe_df <- one_hot_ling_data(ling_df_cleaned, remove_zeros = TRUE)
+X <- get_X_matrix(ling_ohe_df)
+# do PCA
+pca_out <- prcomp(X)
+pca_scores <- as.data.frame(pca_out$x)
+pve4 <- pca_out$sdev^2 / sum(pca_out$sdev^2)
+```
+
+::: {.panel-tabset}
+
+### PCA (uncolored)
+```{r}
+#| echo: false
+#| fig-width: 12
+
+plot_dr_scatter(pca_scores, components = 1:2)
+```
+
+### PCA (colored by location)
+```{r}
+#| echo: false
+#| fig-width: 12
+
+pca_plt1 <- plot_dr_scatter(
+  pca_scores, components = 1:2, color = get_location(ling_ohe_df, "lat")
+) +
+  ggplot2::labs(color = "Latitude")
+pca_plt2 <- plot_dr_scatter(
+  pca_scores, components = 1:2, color = get_location(ling_ohe_df, "long")
+) +
+  ggplot2::labs(color = "Longitude")
+patchwork::wrap_plots(pca_plt1, pca_plt2)
+```
+
+### Map
+```{r}
+#| echo: false
+#| fig-width: 12
+
+plot_dr_map(pca_scores, ling_ohe_df)
+```
+
+### Map (by county)
+```{r}
+#| echo: false
+#| fig-width: 12
+
+plot_dr_map(pca_scores, ling_ohe_df, by_county = TRUE)
+```
+
+:::
+
+The first two PCs now show some association with geographical regions in the US.
+
+Like before, we can look at the PC loadings to find the features that are driving the top PCs
+
+```{r}
+as.data.frame(pca_out$rotation) |> 
+  tibble::rownames_to_column("question") |> 
+  dplyr::mutate(
+    dplyr::across(
+      tidyselect::starts_with("PC"),
+      function(x) {
+        data.frame(
+          question = question,
+          loading = x,
+          value = sprintf("%s (%.2f)", question, x)
+        ) |> 
+          dplyr::arrange(-abs(loading)) |> 
+          dplyr::pull(value)
+      }
+    )
+  ) |> 
+  dplyr::select(PC1:PC5) |> 
+  head()
+```
+
+Lastly, to wrap up our PCA investigations, let us take a look at the proportion of variance explained (PVE) by the top PCs. 
+For instructive purposes, we will plot the cumulative PVE for each of the four PCA runs we have done so far. 
+We do this so as to highlight that **higher PVE is *not* necessarily indicative of a better PCA**. 
+Notably, PC1 from the first PCA run (using the raw data) has the highest PVE, but this PC1 is capturing variance that we do not care about. 
+In fact, this variance is an unwanted artifact of the way that the data was encoded. 
+PVEs across different PCA runs are also not directly comparable since PVE is always measured *relative* to the total amount of variation in the data and the total amount of variation almost always differs across datasets (or even the same dataset, scaled/cleaned/preprocessed differently). 
+Consequently, PVE alone should not be used to evaluate the "quality" or "usefulness" of PCA.
+
+```{r}
+top_pcs <- 100
+pves <- tibble::tibble(
+  PC = 1:top_pcs,
+  `1-raw` = cumsum(pve1[1:top_pcs]),
+  `2-scaled` = cumsum(pve2[1:top_pcs]),
+  `3-onehot` = cumsum(pve3[1:top_pcs]),
+  `4-cleaned-onehot` = cumsum(pve4[1:top_pcs])
+) |> 
+  tidyr::pivot_longer(
+    cols = -PC,
+    names_to = "mode",
+    values_to = "PVE"
+  )
+plt <- ggplot2::ggplot(pves) +
+  ggplot2::aes(x = PC, y = PVE, color = mode) +
+  ggplot2::geom_line() +
+  ggplot2::geom_point() +
+  ggplot2::labs(
+    x = "Number of PCs",
+    y = "Cumulative PVE",
+    color = "Mode"
+  ) +
+  ggplot2::theme_minimal()
+plt
+```
+
+
+## Alternative Dimension Reduction Pipelines
+
+Other things to try:
+
+- What if we had performed PCA at the county level (after aggregating the survey responses by county)?
+
+```{r}
+# aggregate_survey_response_by_county() computes the proportion of each response per county
+ling_county_df <- aggregate_survey_response_by_county(ling_ohe_df)
+X <- get_X_matrix(ling_county_df)
+
+# do PCA
+pca_out <- prcomp(X)
+pca_scores <- as.data.frame(pca_out$x)
+```
+
+::: {.panel-tabset}
+
+### PCA (uncolored)
+```{r}
+#| echo: false
+#| fig-width: 12
+
+plot_dr_scatter(pca_scores, components = 1:2)
+```
+
+### PCA (colored by location)
+```{r}
+#| echo: false
+#| fig-width: 12
+
+pca_plt1 <- plot_dr_scatter(
+  pca_scores, components = 1:2, color = get_location(ling_county_df, "lat")
+) +
+  ggplot2::labs(color = "Latitude")
+pca_plt2 <- plot_dr_scatter(
+  pca_scores, components = 1:2, color = get_location(ling_county_df, "long")
+) +
+  ggplot2::labs(color = "Longitude")
+patchwork::wrap_plots(pca_plt1, pca_plt2)
+```
+
+### Map (by county)
+```{r}
+#| echo: false
+#| fig-width: 12
+
+plot_dr_map(pca_scores, ling_county_df, by_county = TRUE)
+```
+
+:::
+
+And the corresponding PC loadings:
+
+```{r}
+as.data.frame(pca_out$rotation) |> 
+  tibble::rownames_to_column("question") |> 
+  dplyr::mutate(
+    dplyr::across(
+      tidyselect::starts_with("PC"),
+      function(x) {
+        data.frame(
+          question = question,
+          loading = x,
+          value = sprintf("%s (%.2f)", question, x)
+        ) |> 
+          dplyr::arrange(-abs(loading)) |> 
+          dplyr::pull(value)
+      }
+    )
+  ) |> 
+  dplyr::select(PC1:PC5) |> 
+  head()
+```
+
+
+## Your Turn (t-SNE and UMAP)
+
+**Your Goal**: Explore the data using t-SNE (`? Rtsne::Rtsne`) and UMAP (`? umap::umap`). You can try applying these techniques to the raw individual data, to the county-level data, or to other pre-processed data variants. *Tips:*
+
+- To reduce runtime, I would suggest to apply t-SNE and UMAP to the cleaned, aggregated county-level data instead of the raw individual-level data.
+- For help with t-SNE and UMAP code, check out the Unsupervised Learning page on our course website ([t-SNE](https://tiffanymtang.github.io/dsip-s26/course_materials/unsupervised_learning/notebooks/unsupervised_learning.html#t-distributed-stochastic-neighbor-embedding-tsne) and [UMAP](https://tiffanymtang.github.io/dsip-s26/course_materials/unsupervised_learning/notebooks/unsupervised_learning.html#uniform-manifold-approximation-and-projection-umap)). 
+
+```{r}
+# # individual data
+# ling_ohe_df_distinct <- ling_ohe_df |> 
+#   # need to remove duplicates or else tsne will throw an error
+#   dplyr::distinct(
+#     dplyr::across(tidyselect::starts_with("Q")),
+#     .keep_all = TRUE
+#   )
+# X <- get_X_matrix(ling_ohe_df_distinct)
+
+# county-level data
+ling_county_df <- aggregate_survey_response_by_county(ling_ohe_df) |> 
+  # need to remove duplicates or else tsne will throw an error
+  dplyr::distinct(
+    dplyr::across(tidyselect::starts_with("Q")),
+    .keep_all = TRUE
+  )
+X <- get_X_matrix(ling_county_df)
+
+# Note: default in Rtsne performs PCA and keeps 50 components before running tSNE
+# TODO: fill in with t-SNE code
+```
+
+```{r}
+# # individual data
+# ling_ohe_df_distinct <- ling_ohe_df |> 
+#   # need to remove duplicates or else tsne will throw an error
+#   dplyr::distinct(
+#     dplyr::across(tidyselect::starts_with("Q")),
+#     .keep_all = TRUE
+#   )
+# X <- get_X_matrix(ling_ohe_df_distinct)
+
+# county-level data
+ling_county_df <- aggregate_survey_response_by_county(ling_ohe_df) |> 
+  # need to remove duplicates or else tsne will throw an error
+  dplyr::distinct(
+    dplyr::across(tidyselect::starts_with("Q")),
+    .keep_all = TRUE
+  )
+X <- get_X_matrix(ling_county_df)
+
+# TODO: fill in with UMAP code
+```

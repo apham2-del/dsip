@@ -1,11 +1,17 @@
 name: dsip_cancer2
 channels:
+  - conda-forge
   - defaults
 dependencies:
+  - python=3.10
   - seaborn
-  - plotnine
-  - pandas
-  - scikit-learn
   - jupyterlab
   - matplotlib
+  - scikit-learn
+  - pandas
+  - plotnine
+  - mamba
+  - autogluon
+  - pip:
+    - tabpfn
 prefix: /opt/miniconda3/envs/dsip_cancer2

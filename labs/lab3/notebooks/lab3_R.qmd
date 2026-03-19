@@ -1,0 +1,36 @@
+---
+title: "Lab 3 - Cloud Prediction"
+author: "Insert Name Here"
+date: today
+format: 
+  html:
+    code-fold: true
+    code-summary: "Show Code"
+    code-tools: true
+    theme: sandstone
+    lightbox: true
+    embed-resources: true
+execute: 
+  warning: false
+  message: false
+---
+
+```{r setup, include=FALSE}
+here::i_am("notebooks/lab3_R.qmd")
+
+# source all functions from R/ folder
+for (fname in list.files(here::here("R"), pattern = "*.R")) {
+  source(here::here(file.path("R", fname)))
+}
+
+# path to data
+DATA_PATH <- here::here("data")
+
+# set seed
+set.seed(331)
+```
+
+# Exploratory Data Analysis
+
+# Prediction Modeling
+

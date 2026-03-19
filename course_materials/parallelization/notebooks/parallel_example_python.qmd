@@ -1,0 +1,123 @@
+---
+title: "Parallelization Example"
+author: "Prof. Tiffany Tang"
+date: today
+format: 
+  html:
+    code-fold: show
+    code-summary: "Show Code"
+    code-tools: true
+    theme: sandstone
+    lightbox: true
+    embed-resources: true
+toc: true
+execute: 
+  warning: false
+  message: false
+jupyter: python3
+---
+
+```{python setup}
+import sys
+sys.path.append("..")
+
+import os
+from os.path import join as oj
+import pandas as pd
+import numpy as np
+import time
+from joblib import Parallel, delayed
+import inspect
+
+sys.path.append('..') # add parent directory to path
+from python.load import load_brca_data, load_subtype_data
+from python.clean import apply_log_transform
+from python.fit import fit_rf_loo
+
+# Helper variables
+DATA_PATH = oj("..", "data")
+n = 10  # Do leave-one-out for the first 10 samples for illustration
+```
+
+## Load Data
+
+In this parallelization example, we will be working with gene expression data from women with breast cancer from [The Cancer Genome Atlas (TCGA)](https://www.cancer.gov/ccg/research/genome-sequencing/tcga) (and also used in lab 2). In particular, we will be using the gene expressions to predict their breast cancer subtype (Luminal A, Luminal B, Basal, Her2, Normal-like). Let's first load in this data.
+
+```{python}
+# Load in TCGA breast cancer data
+X = load_brca_data(DATA_PATH).values  # convert to numpy array
+X = apply_log_transform(X)
+y = load_subtype_data(DATA_PATH)['subtype'].values  # convert to numpy array
+```
+
+```{python}
+X
+```
+
+```{python}
+y
+```
+
+## Fitting leave-one-out models
+
+For the sake of this demonstration, suppose that we want to evaluate the performance of a random forest model on this data using leave-one-out cross-validation (also known as the *jackknife* in statistics). 
+The jackknife is a useful technique for estimating the bias and variance of a statistical model/estimator and can also be used to identify influential observations (i.e., those observations that have a large impact on the model's performance).
+
+To do so, there is a helper function `fit_rf_loo()` in `python/fit.py` that takes in the covariate data `X`, the response variable `y`, and the index of the observation to leave out `i`. This function `fit_rf_loo()` fits a random forest model on the data with the `i`-th observation left out and returns the predicted class of the left-out `i`-th observation.
+
+```{python}
+print(inspect.getsource(fit_rf_loo))
+```
+
+## Without Parallelization
+
+Let's first run the leave-one-out cross-validation without parallelization to see how long it takes. We will only run this on the first `n = 10` observations for demonstration purposes.
+
+```{python}
+start_time = time.time()
+preds = np.empty(n, dtype=object)  # Vector of leave-one-out predictions
+for i in range(n):
+    preds[i] = fit_rf_loo(i, X, y)
+end_time = time.time()
+execution_time = end_time - start_time
+print("Execution time without parallelization:", execution_time)
+```
+
+## With Parallelization
+
+Next, let's run the leave-one-out cross-validation with parallelization using the `joblib` package. But before implementing this, let's check how many cores are available on this machine using `os.cpu_count()`.
+
+```{python}
+os.cpu_count()
+```
+
+Now, to parallelize this code, there are two steps:
+
+**Step 1: Setting up the parallel backend.** This is done using `Parallel(n_jobs=...)`, where we specify the number of cores we would like to use.
+
+**Step 2: Re-write the code using futures (or `delayed()`)** Here, we need to put the code that we want to run in parallel into a single function (luckily, this is already done for us) and wrap that function call using `delayed()`. This essentially creates futures that can be evaluated in parallel.
+
+-   A future can be resolved or unresolved.
+-   If the value is queried while the future is still unresolved, the current process is blocked until the future is resolved. Otherwise, the code continues to execute (i.e., it's unblocking).
+
+```{python}
+start_time = time.time()
+preds_parallel = Parallel(n_jobs=5)(delayed(fit_rf_loo)(i, X, y) for i in range(n))
+end_time = time.time()
+execution_time = end_time - start_time
+print("Execution time with joblib parallelization:", execution_time)
+```
+
+Note:
+
+-   The futures are "non-blocking" so that the code continues to run (while the futures are being computed in the background) until it reaches a point where the value of the future is needed.
+
+## Additional Resources/Links
+
+- **joblib**: <https://joblib.readthedocs.io/en/stable/>
+- **multiprocessing**: <https://docs.python.org/3/library/multiprocessing.html>
+- **Dask**: <https://www.dask.org/>
+    - Great for handling large datasets and scaling operations from a single machine to a cluster
+- **Ray**: <https://www.ray.io/>
+    - Useful for building distributed applications and handling complex parallel tasks across multiple machines
+- A great introductory tutorial covering joblib, multiprocessing, and Dask from Thomas Langford (Yale): <https://docs.ycrc.yale.edu/parallel_python/#/>

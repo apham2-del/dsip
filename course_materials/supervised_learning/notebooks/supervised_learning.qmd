@@ -1,0 +1,2322 @@
+---
+title: "Introduction to Supervised Learning Methods"
+format: html
+---
+
+```{r setup, include=FALSE}
+# set seed
+set.seed(331)
+```
+
+## Overview
+
+The goal of this notebook is two-fold:
+
+1.  To provide a self-contained introduction/tutorial on popular machine learning prediction methods, and
+2.  To demonstrate how to implement these methods in R and Python
+
+Throughout this notebook, we will be using two datasets:
+
+- `spotify_data`: A dataset containing information about the most popular songs on Spotify in 2023, which can be used to predict the average number of streams per month. This dataset will be used for **regression tasks**. More information can be found [here](https://www.kaggle.com/datasets/nelgiriyewithana/top-spotify-songs-2023).
+- `wine_data`: A dataset containing information about wines (chemical composition, pH, alcohol content, etc.), which can be used to predict the quality of the wine (good [1] or bad [0]). This dataset will be used for **classification tasks**. More information can be found [here](https://archive.ics.uci.edu/dataset/186/wine+quality).
+
+### Loading/Cleaning the data {.unnumbered}
+
+::: panel-tabset
+#### R
+
+::: {.panel-tabset .nav-pills}
+
+##### Regression
+
+```{r}
+DATA_DIR <- file.path("..", "data")
+spotify_orig <- data.table::fread(
+  file.path(DATA_DIR, "spotify-2023-cleaned.csv")
+) |> 
+  tibble::as_tibble()
+# do a little data cleaning
+spotify_data <- spotify_orig |> 
+  # exclude some columns from predictor set of variables
+  dplyr::select(-track_name, -`artist(s)_name`, -streams) |> 
+  # log-transform number of streams to mitigate heavy right-skewedness
+  dplyr::mutate(
+    streams_per_month = log1p(streams_per_month)
+  )
+spotify_data
+```
+
+##### Classification
+
+```{r}
+DATA_DIR <- file.path("..", "data")
+wine_orig <- data.table::fread(
+  file.path(DATA_DIR, "winequality-red.csv")
+) |> 
+  tibble::as_tibble()
+# do a little data cleaning
+quality_levels <- c("bad", "good")
+wine_data <- wine_orig |> 
+  dplyr::mutate(
+    # convert numeric quality (1-10 rating) to binary good/bad categories
+    quality = factor(
+      ifelse(quality >= 7, "good", "bad"), levels = quality_levels
+    )
+  )
+wine_data
+```
+
+:::
+
+#### Python
+
+::: {.panel-tabset .nav-pills}
+
+##### Regression
+
+```{python}
+import pandas as pd
+import numpy as np
+from os.path import join as oj
+
+DATA_DIR = oj("..", "data")
+spotify_orig = pd.read_csv(oj(DATA_DIR, "spotify-2023-cleaned.csv"), encoding="ISO-8859-1")
+# exclude some columns from predictor set of variables
+spotify_data = spotify_orig.drop(columns=["track_name", "artist(s)_name", "streams"])
+# log-transform number of streams to mitigate heavy right-skewedness
+spotify_data["streams_per_month"] = np.log1p(spotify_data["streams_per_month"])
+spotify_data.head()
+```
+
+##### Classification
+
+```{python}
+import pandas as pd
+import numpy as np
+from os.path import join as oj
+
+DATA_DIR = oj("..", "data")
+wine_data = pd.read_csv(oj(DATA_DIR, "winequality-red.csv"))
+# convert numeric quality (1-10 rating) to binary good/bad categories
+wine_data["quality"] = wine_data["quality"].apply(lambda x: 1 if x >= 7 else 0)
+wine_data.head()
+```
+:::
+
+:::
+
+### Splitting the data into training and testing sets {.unnumbered}
+
+Before we start building our models, we need to split our data into training and testing sets. The training set will be used to train the model, while the testing set will be used to evaluate the model's performance.
+
+::: panel-tabset
+
+#### R
+
+::: {.panel-tabset .nav-pills}
+
+##### Regression
+
+```{r}
+train_prop <- 0.7
+
+spotify_train_idxs <- sample(
+  1:nrow(spotify_data), nrow(spotify_data) * train_prop, replace = FALSE
+)
+# train-test split of spotify data
+spotify_train <- spotify_data[spotify_train_idxs, ]
+spotify_test <- spotify_data[-spotify_train_idxs, ]
+# get corresponding X and y data
+X_spotify_train <- spotify_train |> 
+  dplyr::select(-streams_per_month)
+X_spotify_test <- spotify_test |> 
+  dplyr::select(-streams_per_month)
+y_spotify_train <- spotify_train$streams_per_month
+y_spotify_test <- spotify_test$streams_per_month
+```
+
+##### Classification
+
+```{r}
+train_prop <- 0.7
+
+wine_train_idxs <- sample(
+  1:nrow(wine_data), nrow(wine_data) * train_prop, replace = FALSE
+)
+# train-test split of wine data
+wine_train <- wine_data[wine_train_idxs, ]
+wine_test <- wine_data[-wine_train_idxs, ]
+# get corresponding X and y data
+X_wine_train <- wine_train |> 
+  dplyr::select(-quality)
+X_wine_test <- wine_test |>
+  dplyr::select(-quality)
+y_wine_train <- wine_train$quality
+y_wine_test <- wine_test$quality
+```
+
+:::
+
+#### Python
+
+::: {.panel-tabset .nav-pills}
+
+##### Regression
+
+```{python}
+from sklearn.model_selection import train_test_split
+
+train_prop = 0.7
+X_spotify = spotify_data.drop(columns="streams_per_month")
+y_spotify = spotify_data["streams_per_month"]
+X_spotify_train, X_spotify_test, y_spotify_train, y_spotify_test = train_test_split(
+  X_spotify, y_spotify, train_size=train_prop, random_state=331
+)
+```
+
+##### Classification
+
+```{python}
+from sklearn.model_selection import train_test_split
+
+train_prop = 0.7
+X_wine = wine_data.drop(columns="quality")
+y_wine = wine_data["quality"]
+X_wine_train, X_wine_test, y_wine_train, y_wine_test = train_test_split(
+  X_wine, y_wine, train_size=train_prop, random_state=331
+)
+```
+
+:::
+
+:::
+
+### Evaluation helper functions {.unnumbered}
+
+Before jumping in, let us also create a helper function `evaluate_predictions()` to help us evaluate the model predictions from regression and classification problems.
+
+::: panel-tabset
+#### R
+
+```{r}
+#| code-fold: true
+
+#' Evaluate predictions for regression and classification tasks
+#' 
+#' @param y_true Vector of true response values
+#' @param y_pred Vector of predicted response values. 
+#' @param y_class_pred Vector of predicted probabilities for the positive 
+#'   (i.e., second) class (only for classification tasks).
+#' @param mode Whether the task is regression or classification
+#' @param point_size (Optional) Size of points in scatter plot. Only used for
+#'   regression tasks.
+evaluate_predictions <- function(y_true, y_pred, y_prob_pred = NULL, 
+                                 mode = c("regression", "classification"), 
+                                 point_size = 1) {
+  mode <- match.arg(mode)
+  if (mode == "regression") {
+    plt_df <- tibble::tibble(y_true = y_true, y_pred = y_pred)
+    # plot true vs predicted values
+    plt <- ggplot2::ggplot(plt_df) +
+      ggplot2::aes(x = y_true, y = y_pred) +
+      ggplot2::geom_point(size = point_size) +
+      ggplot2::geom_abline(
+        intercept = 0, slope = 1, color = "gray", linetype = "dashed"
+      ) +
+      ggplot2::labs(x = "True Response", y = "Predicted Response") +
+      ggplot2::theme_minimal()
+    # compute global evaluation metrics
+    metrics_out <- tibble::tibble(
+      RMSE = yardstick::rmse_vec(y_true, y_pred),
+      R2 = yardstick::rsq_vec(y_true, y_pred),
+      MAE = yardstick::mae_vec(y_true, y_pred)
+    )
+    confusion_tab <- NULL
+  } else {
+    plt_df <- tibble::tibble(
+      y_true = y_true, y_pred = y_pred, y_prob_pred = y_prob_pred
+    )
+    # plot boxplot of predicted values by true values
+    plt <- ggplot2::ggplot(plt_df) +
+      ggplot2::aes(x = y_true, y = y_prob_pred, group = y_true) +
+      ggplot2::geom_boxplot() +
+      ggplot2::labs(
+        x = "True Response", y = "Predicted Response", 
+        title = "True vs Predicted Responses"
+      )
+    # plot AUROC and AUPRC curves
+    roc_plt <- plt_df |> 
+      yardstick::roc_curve(y_true, y_prob_pred, event_level = "second") |> 
+      ggplot2::autoplot() +
+      ggplot2::labs(
+        x = "1 - Specificity", y = "Sensitivity", title = "ROC Curve"
+      ) +
+      ggplot2::coord_cartesian()
+    pr_plt <- plt_df |> 
+      yardstick::pr_curve(y_true, y_prob_pred, event_level = "second") |>
+      ggplot2::autoplot() +
+      ggplot2::labs(
+        x = "Recall", y = "Precision", title = "Precision-Recall Curve"
+      ) +
+      ggplot2::coord_cartesian()
+    plt <- patchwork::wrap_plots(
+      plt, roc_plt, pr_plt,
+      ncol = 3, widths = c(1, 1.5, 1.5)
+    ) &
+      ggplot2::theme_minimal()
+    # compute global evaluation metrics
+    metrics_out <- tibble::tibble(
+      AUROC = yardstick::roc_auc_vec(y_true, y_prob_pred, event_level = "second"),
+      AUPRC = yardstick::pr_auc_vec(y_true, y_prob_pred, event_level = "second"),
+      Accuracy = yardstick::accuracy_vec(y_true, y_pred)
+    )
+    # compute confusion matrix
+    confusion_tab <- table(true = y_true, predictions = y_pred) |> 
+      as.data.frame.matrix() |> 
+      dplyr::rename_with(~ sprintf("Predicted %s", .))
+    rownames(confusion_tab) <- c("Observed bad", "Observed good")
+  }
+  return(list(plot = plt, metrics = metrics_out, confusion = confusion_tab))
+}
+```
+
+#### Python
+
+```{python}
+#| code-fold: true
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error, roc_curve, auc, precision_recall_curve, accuracy_score, confusion_matrix
+
+def evaluate_predictions(y_true, y_pred, y_prob_pred=None, mode="regression", point_size=10):
+    """
+    Evaluate predictions for regression and classification tasks.
+    
+    Parameters
+    ----------
+    y_true : array-like
+        Vector of true response values.
+    y_pred : array-like
+        Vector of predicted response values.
+    y_prob_pred : array-like, optional
+        Vector of predicted probabilities for the positive (i.e., second) class (only for classification tasks).
+    mode : str, optional
+        Whether the task is regression or classification.
+    point_size : dbl, optional
+        Size of points in scatter plot. Only used for regression tasks.
+    """
+    if mode == "regression":
+        plt_df = pd.DataFrame({"y_true": y_true, "y_pred": y_pred})
+        
+        # Scatter plot of true vs predicted values
+        plt.figure(figsize=(5, 5))
+        sns.scatterplot(x=y_true, y=y_pred, s=point_size)
+        plt.plot([min(y_true), max(y_true)], [min(y_true), max(y_true)], linestyle='dashed', color='gray')
+        plt.xlabel("True Response")
+        plt.ylabel("Predicted Response")
+        plt.title("True vs Predicted Responses")
+        plt.grid(True)
+        plt.show()
+        
+        # Compute global evaluation metrics
+        metrics_out = pd.DataFrame({
+            "RMSE": [np.sqrt(mean_squared_error(y_true, y_pred))],
+            "R2": [r2_score(y_true, y_pred)],
+            "MAE": [mean_absolute_error(y_true, y_pred)]
+        })
+        confusion_tab = None
+    
+    else:  # Classification
+        plt_df = pd.DataFrame({"y_true": y_true, "y_pred": y_pred, "y_prob_pred": y_prob_pred})
+        
+        # Create subplots for the plots
+        fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+        
+        # Boxplot of predicted probabilities by true labels
+        sns.boxplot(x=y_true, y=y_prob_pred, ax=axes[0])
+        axes[0].set_xlabel("True Response")
+        axes[0].set_ylabel("Predicted Probability")
+        axes[0].set_title("True vs Predicted Responses")
+        
+        # ROC Curve
+        fpr, tpr, _ = roc_curve(y_true, y_prob_pred, pos_label=1)
+        roc_auc = auc(fpr, tpr)
+        axes[1].plot(fpr, tpr, label=f'AUROC = {roc_auc:.2f}')
+        axes[1].plot([0, 1], [0, 1], linestyle='dashed', color='gray')
+        axes[1].set_xlabel("1 - Specificity")
+        axes[1].set_ylabel("Sensitivity")
+        axes[1].set_title("ROC Curve")
+        axes[1].legend()
+        # axes[1].grid(True)
+        
+        # Precision-Recall Curve
+        precision, recall, _ = precision_recall_curve(y_true, y_prob_pred, pos_label=1)
+        pr_auc = auc(recall, precision)
+        axes[2].plot(recall, precision, label=f'AUPRC = {pr_auc:.2f}')
+        axes[2].set_xlabel("Recall")
+        axes[2].set_ylabel("Precision")
+        axes[2].set_title("Precision-Recall Curve")
+        axes[2].legend()
+        axes[2].grid(True)
+        
+        plt.show()
+        
+        # Compute global evaluation metrics
+        metrics_out = pd.DataFrame({
+            "AUROC": [roc_auc],
+            "AUPRC": [pr_auc],
+            "Accuracy": [accuracy_score(y_true, y_pred)]
+        })
+        
+        # Compute confusion matrix
+        conf_mat = confusion_matrix(y_true, y_pred)
+        confusion_tab = pd.DataFrame(conf_mat, columns=["Predicted 0", "Predicted 1"], index=["Observed 0", "Observed 1"])
+    
+    return {"metrics": metrics_out, "confusion": confusion_tab}
+
+```
+:::
+
+
+## Machine Learning Methods
+
+In this section, we will briefly introduce a variety of machine learning prediction methods, ranging from the most classical (e.g., linear regression) to more modern methods (e.g., random forests and deep learning). For each method, we will discuss:
+
+- What is it?
+- How do different preprocessing choices impact the model?
+- How do we interpret the model?
+- How do we implement the model in R and Python?
+
+### Linear (Logistic) Regression
+
+We start with the simplest and most classical machine learning method: linear regression. 
+Linear regression aims the find the line that best fits the data, such that the sum of the squared differences between the observed and predicted values is minimized.
+That is, given a set of predictor variables $\mathbf{X} = [X_1, X_2, \ldots, X_p] \in \mathbb{R}^{n \times p}$ and response variable $\mathbf{y} \in \mathbb{R}^n$, linear regression solves:
+
+$$
+\hat{\boldsymbol{\beta}} = \underset{\boldsymbol{\beta} \in \mathbb{R}^p}{\operatorname{argmin}} \;\; \frac{1}{n} \lVert \mathbf{y} - \mathbf{X} \boldsymbol{\beta} \rVert_2^2 = \frac{1}{n} \sum_{i=1}^n \left\{ y_i - (\beta_1 X_{i1} + \ldots + \beta_p X_{ip}) \right\}^2,
+$$ {#eq-lin-reg}
+
+and the individual predictions are given by:
+
+$$
+\hat{y}_i = \hat{\beta}_1 X_{i1} + \ldots + \hat{\beta}_p X_{ip}
+$$ {#eq-lin-reg-pred}
+
+for $i = 1, \ldots, n$.
+
+*Note that we drop the intercept term $\beta_0$ for notational simplicity. In practice, we most likely want to include an intercept term in the above optimization problem.*
+
+Intuitively, linear regression approximates the relationship between the response variable and the predictor variables as a linear function so that $\mathbf{y} \approx \mathbf{X} \hat{\boldsymbol{\beta}}$. 
+Given its simplicity, linear regression is often used as a baseline model. 
+If the more complex model does not significantly outperform linear regression, then it may not be worth the additional model complexity.
+
+::: {.callout-tip title="How does centering and scaling $\mathbf{X}$ affect linear regression?" collapse="true"}
+
+Assuming that an intercept term is included in the model (which is common practice), the predictions $\hat{y}_i$ outputted by linear regression will be the same regardless of whether the predictors $\mathbf{X}$ are centered and/or scaled. 
+
+- Why? The intercept term will *absorb* the centering effect, and the coefficients $\hat{\boldsymbol{\beta}}$ will *absorb* the scaling effect.
+
+<details>
+- How can we see this mathematically?
+For simplicity, let's consider the 1-dimensional case with an intercept term, and let $\hat{\beta}_0, \hat{\beta}_1$ be the optimal intercept and slope obtained from the linear regression optimization problem, i.e.,
+$$
+\hat{\beta}_0, \hat{\beta}_1 =  \underset{\beta_0, \beta_1}{\operatorname{argmin}} \;\; \frac{1}{n} \sum_{i=1}^n \left\{ y_i - (\beta_0 + \beta_1 X_i) \right\}^2.
+$$
+Now, suppose that we center and scale $X$, i.e., $\tilde{X}_i = (X_i - \mu) / \sigma$, where $\mu$ and $\sigma$ are the mean and standard deviation of $X$, respectively. If we were to resolve the linear regression optimization problem using the centered and scaled $\tilde{X}$, we would have:
+$$
+\hat{\tilde{\beta}}_0, \hat{\tilde{\beta}}_1 = \underset{\beta_0, \beta_1}{\operatorname{argmin}} \;\; \frac{1}{n} \sum_{i=1}^n \left\{ y_i - (\beta_0 + \beta_1 \tilde{X}_i) \right\}^2.
+$$
+Plugging in $\tilde{X} = (X - \mu) / \sigma$ into the above equation, we see that
+\begin{align}
+\hat{\tilde{\beta}}_0, \hat{\tilde{\beta}}_1 &= \underset{\tilde{\beta}_0, \tilde{\beta}_1}{\operatorname{argmin}} \;\; \frac{1}{n} \sum_{i=1}^n \left\{ y_i - (\tilde{\beta}_0 + \tilde{\beta}_1 \frac{X_i - \mu}{\sigma}) \right\}^2 \\
+&= \underset{\tilde{\beta}_0, \tilde{\beta}_1}{\operatorname{argmin}} \;\; \frac{1}{n} \sum_{i=1}^n \left\{ y_i - ((\tilde{\beta}_0 - \frac{\tilde{\beta}_1 \mu}{\sigma}) + \frac{\tilde{\beta}_1}{\sigma} X_i) \right\}^2 \\
+&= \underset{\beta_0, \beta_1}{\operatorname{argmin}} \;\; \frac{1}{n} \sum_{i=1}^n \left\{ y_i - (\beta_0 + \beta_1 X_i) \right\}^2,
+\end{align}
+where the last line follows from the following change of variables:
+$$
+\beta_0 = \tilde{\beta}_0 - \frac{\tilde{\beta}_1 \mu}{\sigma} \qquad \text{and} \qquad \beta_1 = \frac{\tilde{\beta}_1}{\sigma}.
+$$
+It follows that the optimal linear regression coefficients $\hat{\tilde{\beta}}_0, \hat{\tilde{\beta}}_1$ (using the centered and scaled data $\tilde{X}$) are related to the original coefficients $\hat{\beta}_0, \hat{\beta}_1$ (using the original data $X$) by $\hat{\tilde{\beta}}_1 = \sigma\hat{\beta}_1$ and $\hat{\tilde{\beta}}_0 = \hat{\beta}_0 + \frac{\hat{\tilde{\beta}}_1 \mu}{\sigma} = \hat{\beta}_0 + \hat{\beta}_1 \mu$.
+</details>
+:::
+
+::: {.callout-caution title="How do we interpret linear regression?" collapse="true"}
+
+If all of the covariates/features are measured on the same scale, then
+
+- the magnitude of the estimated coefficients $\hat{\beta}$ can be interpreted as the importance of each predictor variable for predicting the response variable, conditional on all other variables in the model being held fixed, and
+- the sign of the estimated coefficients $\hat{\beta}$ indicates the direction of the relationship between the predictor variable and the response variable, conditional on all other variables in the model. 
+
+If the covariates/features are not on the same scale, then it is more appropriate to compare the scaled coefficients (i.e., $\frac{\hat{\beta}}{\sigma}$) rather than the coefficients themselves.
+:::
+
+::: {.callout-note title="Note: Linear Regression: A model or an algorithm?" collapse="true"}
+Note that the presentation of linear regression in this section most likely differs from traditional statistics classes on linear regression in a very important way. 
+Traditionally, linear regression is introduced as a *model* with distributional (e.g., Gaussian) assumptions on the types of noise allowed in the model. 
+These assumptions are important and necessary in order to perform *inference* and obtain valid hypothesis tests assessing the statistical significance of $\hat{\boldsymbol{\beta}}$ being different from zero.
+
+However, if the primary task is simply prediction as is often the case in machine learning, then linear regression can instead be viewed as purely as an *algorithm*, which simply solves an optimization problem. 
+Here, no model is imposed, and no assumptions are made. 
+From this perspective, linear regression is an algorithm that can be applied in any situation and finds the linear combination of features in $mathbf{X}$ which best approximates the response variable $\mathbf{y}$.
+:::
+
+::: {.callout-warning title="Logistic regression and generalized linear models" collapse="true"}
+
+As noted previously, linear regression can be applied in any situation given data $\mathbf{X}$ and $\mathbf{y}$. 
+However, in many cases, linear regression may not be the most appropriate prediction method since linear regression predicts responses that can be any real number from $-\infty$ to $\infty$. 
+For example, the response variable could be binary, count, or some other structured distribution. 
+To better handle these different types of response variables, linear regression can be extended to a broader family of methods called **generalized linear models**.
+
+In its most general form, generalized linear models solve the following optimization problem:
+
+$$
+\hat{\boldsymbol{\beta}} = \underset{\boldsymbol{\beta} \in \mathbb{R}^p}{\operatorname{argmin}} \;\; \frac{1}{n} \sum_{i=1}^n \ell \left(y_i ,\; g^{-1}(\beta_1 X_{i1} + \ldots + \beta_p X_{ip}) \right),
+$$
+
+where 
+
+- $\ell$ is a loss function which at a high-level measures the discrepancy between the observed response $y_i$ and the predicted response $g^{-1}(\beta_1 X_{i1} + \ldots + \beta_p X_{ip})$, and
+- $g^{-1}$ is the inverse link function that maps the linear combination of features to the target domain of the response variable. 
+
+For example, in linear regression, the link function is the identify function (i.e., $g^{-1}(x) = x$), and the loss function is the $\ell_2$-loss (i.e., $\ell(y, z) = (y - z)^2$). 
+For binary classification tasks, logistic regression is typically the generalized linear model of choice. 
+The loss function in logistic regression is the negative log-likelihood function, and the link function in logistic regression is the logistic function, which maps the linear combination of features to the interval $[0, 1]$, corresponding to the probability of the positive class. 
+
+With the exception of the ordinary linear model, generalized linear models are technically *nonlinear* models due to the nonlinear link functions; however, generalized linear models are still *linear* in $\mathbf{X}$, which can be a restrictive assumption.
+
+:::
+
+#### Implementation {.unnumbered}
+
+::: {.panel-tabset}
+
+##### R (lm/glm)
+
+::: {.panel-tabset .nav-pills}
+
+###### Regression
+
+```{r}
+#| results: hold
+
+# fit model
+lin_reg <- lm(streams_per_month ~ ., data = spotify_train)
+# make predictions
+y_preds <- predict(lin_reg, spotify_test)
+# print out model information (estimated coefficients and goodness of fit stats)
+broom::tidy(lin_reg)
+broom::glance(lin_reg)
+# evaluate predictions
+results <- evaluate_predictions(y_true = y_spotify_test, y_pred = y_preds)
+```
+
+```{r}
+#| results: hold
+
+results$plot
+cat("Global Prediction Performance Metrics")
+vthemes::pretty_kable(results$metrics)
+```
+
+
+###### Classification
+
+```{r}
+#| results: hold
+
+# fit model
+log_reg <- glm(quality ~ ., data = wine_train, family = "binomial")
+# make predictions
+y_prob_preds <- predict(log_reg, wine_test, type = "response")
+y_class_preds <- factor(
+  ifelse(y_prob_preds > 0.5, "good", "bad"), levels = quality_levels
+)
+# print out model information (estimated coefficients and goodness of fit stats)
+broom::tidy(log_reg)
+broom::glance(log_reg)
+# evaluate predictions
+results <- evaluate_predictions(
+  y_true = y_wine_test, y_pred = y_class_preds, y_prob_pred = y_prob_preds,
+  mode = "classification"
+)
+```
+
+```{r}
+#| results: hold
+
+results$plot
+cat("Global Prediction Performance Metrics")
+vthemes::pretty_kable(results$metrics)
+cat("Confusion Matrix")
+vthemes::pretty_kable(results$confusion)
+```
+:::
+
+##### R (caret)
+
+::: {.panel-tabset .nav-pills}
+
+###### Regression
+
+```{r}
+#| results: hold
+
+# set training options
+train_control <- caret::trainControl(
+  method = "none"  # don't do any sample splitting; fit lm once to full dataset
+)
+# fit model
+lin_reg <- caret::train(
+  x = as.data.frame(X_spotify_train),
+  y = y_spotify_train,
+  method = "lm",
+  trControl = train_control
+)
+# make predictions
+y_preds <- predict(lin_reg, X_spotify_test)
+# print out model information (estimated coefficients and goodness of fit stats)
+broom::tidy(lin_reg$finalModel)
+broom::glance(lin_reg$finalModel)
+# evaluate predictions
+results <- evaluate_predictions(y_true = y_spotify_test, y_pred = y_preds)
+```
+
+```{r}
+#| results: hold
+
+results$plot
+cat("Global Prediction Performance Metrics")
+vthemes::pretty_kable(results$metrics)
+```
+
+###### Classification
+
+```{r}
+#| results: hold
+
+# set training options
+train_control <- caret::trainControl(
+  method = "none",  # don't do any sample splitting; fit lm once to full dataset
+  classProbs = TRUE
+)
+# fit model
+log_reg <- caret::train(
+  x = as.data.frame(X_wine_train),
+  y = y_wine_train,
+  method = "glm",
+  family = "binomial",
+  trControl = train_control
+)
+# make predictions
+y_class_preds <- predict(log_reg, X_wine_test, type = "raw")
+y_prob_preds <- predict(log_reg, X_wine_test, type = "prob")
+# print out model information (estimated coefficients and goodness of fit stats)
+broom::tidy(log_reg$finalModel)
+broom::glance(log_reg$finalModel)
+# evaluate predictions
+results <- evaluate_predictions(
+  y_true = y_wine_test, y_pred = y_class_preds, y_prob_pred = y_prob_preds$good,
+  mode = "classification"
+)
+```
+
+```{r}
+#| results: hold
+
+results$plot
+cat("Global Prediction Performance Metrics")
+vthemes::pretty_kable(results$metrics)
+cat("Confusion Matrix")
+vthemes::pretty_kable(results$confusion)
+```
+
+:::
+
+##### Python
+
+::: {.panel-tabset .nav-pills}
+
+###### Regression
+
+```{python}
+#| results: hold
+
+import statsmodels.api as sm
+
+# add constant term (intercept) for statsmodels
+X = sm.add_constant(X_spotify_train)
+model = sm.OLS(y_spotify_train, X).fit()
+y_preds = model.predict(sm.add_constant(X_spotify_test))
+print(model.summary())
+```
+
+```{python}
+#| results: hold
+
+results = evaluate_predictions(y_spotify_test, y_preds)
+print("Global Prediction Performance Metrics")
+results["metrics"]
+```
+
+###### Classification
+
+```{python}
+#| results: hold
+
+import statsmodels.api as sm
+
+# add constant term (intercept) for statsmodels
+X = sm.add_constant(X_wine_train)
+model = sm.Logit(y_wine_train, X).fit()
+y_prob_preds = model.predict(sm.add_constant(X_wine_test))
+y_class_preds = (y_prob_preds > 0.5).astype(int)
+print(model.summary())
+```
+
+```{python}
+#| results: hold
+
+results = evaluate_predictions(y_wine_test, y_class_preds, y_prob_pred=y_prob_preds, mode="classification")
+print("Global Prediction Performance Metrics")
+results["metrics"]
+print("Confusion Matrix")
+results["confusion"]
+```
+
+:::
+
+:::
+
+### Regularized Linear Regression
+
+One well-known limitation of linear regression is that there are infinitely many solutions to the linear regression optimization problem when the number of predictors $p$ is greater than the number of observations $n$. 
+This is hugely problematic not only because the problem is underdetermined (i.e., there are infinitely many solutions), but even if we pick a *sensible* solution (typically, the solution with the minimum norm is deemed *sensible*), a small change in the training data can lead to a huge change in the the estimated coefficients $\hat{\boldsymbol{\beta}}$. This instability, or high variance, of the linear regression fit is a major issue in practice and leads to poor generalizability of the model. That is, it is unlikely that the model will generalize well to new, unseen data.
+
+**Regularized linear regression** methods have thus been proposed to address these issues of instability and high variance. Informally, regularized linear regression methods add a *regularization* term (also called a *penalty* term) so that the estimated coefficients are not allowed to be too large and thus cannot vary as wildly. More formally, given data $\mathbf{X} \in \mathbb{R}^{n \times p}$ and response $\mathbf{y} \in \mathbb{R}^n$, regularized linear regression methods solve:
+
+$$
+\hat{\boldsymbol{\beta}} = \underset{\boldsymbol{\beta} \in \mathbb{R}^p}{\operatorname{argmin}} \;\; \underbrace{\frac{1}{n} \lVert \mathbf{y} - \mathbf{X} \boldsymbol{\beta} \rVert_2^2}_{\text{loss function}} + \underbrace{\lambda P(\boldsymbol{\beta})}_{\substack{\text{penalty}\\ \text{term}}},
+$$ {#eq-regularized-reg}
+where 
+
+- $P(\boldsymbol{\beta})$ is a penalty term that penalizes/discourages the estimated coefficients $\hat{\boldsymbol{\beta}}$ from being too large.
+<details>
+<summary>**Learn more about $P(\boldsymbol{\beta})$**</summary>
+<p>
+There are many different choices of penalties $P(\boldsymbol{\beta})$ that can be applied. 
+Generally, these penalties are used to prevent the magnitude of the estimated coefficients from being too large, thereby constraining the complexity and variance of the model. 
+Moreover, different choices of penalties induce different properties and structures on the estimated coefficients $\hat{\boldsymbol{\beta}}$. 
+For example, below we list the three most commonly used penalties and the properties they induce on the estimated coefficients:
+</p>
+<ol>
+<li>**Ridge penalty** (or $L_2$ regularization): $P(\boldsymbol{\beta}) = \lVert \boldsymbol{\beta} \rVert_2^2 = \sum_{j=1}^p \beta_j^2$.</li>
+    <ul>
+    <li>This penalty term encourages the estimated coefficients $\hat{\boldsymbol{\beta}}$ to be small but not exactly 0.</li>
+    <li>When features are highly correlated, ridge regression tends to give similar weights to the correlated features.</li>
+    </ul>
+<li>**LASSO penalty** (or $L_1$ regularization): $P(\boldsymbol{\beta}) = \lVert \boldsymbol{\beta} \rVert_1 = \sum_{j=1}^p \lvert \beta_j \rvert$.</li>
+    <ul>
+    <li>This penalty term encourages the estimated coefficients $\hat{\boldsymbol{\beta}}$ to be *sparse*, i.e., many coefficients are exactly zero.</li>
+    <li>Because of this sparsity property, the LASSO penalty is often used to perform feature selection, that is, to select the important features and completely remove the unimportant features from the model.</li>
+    <li>When features are highly correlated, LASSO tends to select one of the correlated features and set the other correlated features to zero.</li>
+    </ul>
+<li>**Elastic net penalty** (a weighted combination of Ridge and Lasso): $P(\boldsymbol{\beta}) = \alpha \lVert \boldsymbol{\beta} \rVert_1 + (1 - \alpha) \lVert \boldsymbol{\beta} \rVert_2^2$, where $\alpha \in [0, 1]$ is a user-specified hyperparameter that controls the trade-off between the two penalties.</li>
+    <ul>
+    <li>This penalty is a compromise between Ridge and Lasso and thus shares partial benefits of both penalties depending on the choice of $\alpha$.</li>
+    </ul>
+</ol>
+</details>
+
+- $\lambda > 0$ is a user-specified hyperparameter that controls the strength of the regularization.
+<details>
+<summary>**Learn more about $\lambda$**</summary>
+<p>
+Regardless of the choice of penalty term, the idea is that as $\lambda$ increases, the estimated coefficients $\hat{\boldsymbol{\beta}}$ are encouraged to *shrink* towards zero, thereby yielding a simpler, less complex model. To see this, notice that:
+</p>
+<ul>
+<li>At one extreme when $\lambda = 0$, the penalty term in @eq-regularized-reg disappears, and thus, the regularized linear regression problem reduces to the ordinary linear regression problem. The optimal solution then is simply the ordinary linear regression solution.</li>
+<li>At the other extreme when $\lambda = \infty$, the penalty term in @eq-regularized-reg will blow up to $\infty$ unless all the estimated coefficients are exactly zero. Consequently, when $\lambda = \infty$, the optimal solution to @eq-regularized-reg is $\hat{\boldsymbol{\beta}} = \mathbf{0}$.</li>
+</ul>
+<p>
+Thus, we can view the regularization hyperparameter $\lambda$ as a knob that controls the strength of regularization. At one end of the spectrum, the model is the unconstrained ordinary linear regression model, and as $\lambda$ increases towards $\infty$, the coefficients in the model slowly shrink towards zero, yielding a simpler and simpler model. The hyperparameter $\lambda$ can be tuned using cross-validation.
+</p>
+</details>
+
+*Again, note that we drop the intercept term $\beta_0$ for notational simplicity. In practice, we most likely want to include an intercept term in the regularized regression optimization problem.*
+
+Similar to ordinary linear regression, the regularized regression predictions are given by:
+
+$$
+\hat{y}_i = \hat{\beta}_1 X_{i1} + \ldots + \hat{\beta}_p X_{ip}
+$$ {#eq-lin-reg-pred}
+
+for $i = 1, \ldots, n$, where $\hat{\boldsymbol{\beta}} = (\hat{\beta}_1, \ldots, \hat{\beta}_p)^{\top}$ is the solution to the regularized regression optimization problem in @eq-regularized-reg.
+
+::: {.callout-tip title="How does centering and scaling $\mathbf{X}$ affect regularized linear regression?" collapse="true"}
+
+In each of the regularized regression methods discussed above (i.e., ridge, LASSO, and elastic net), the penalty term penalizes the magnitude of the coefficients and thus heavily depends on the scale of the predictors $\mathbf{X}$. In particular, the penalty term in @eq-regularized-reg will penalize larger coefficients more heavily than smaller coefficients. If the covariates/features are not on the same scale, then the penalty term will penalize the coefficients differently, not because of their importance, but simply due to the arbitrary scaling of the covariates.
+
+Consequently, if the observed covariates are not measured on the same scale, it is typically advised to center and scale the predictors $\mathbf{X}$ (e.g., via $\frac{X - \mu}{\sigma}$) before fitting a regularized regression model. This ensures that the penalty term treats all the coefficients fairly and does not penalize the coefficients simply because of the scale of the covariates. If the observed covariates are measured on the same unit/scale (even if they don't all have the same variance), then it is justifiable to fit the regularized regression model without centering and scaling the predictors.
+
+:::
+
+::: {.callout-caution title="How do we interpret regularized linear regression?" collapse="true"}
+
+Similar to the interpretation of linear regression coefficients, if all of the covariates/features are measured on the same scale, then
+
+- the magnitude of the estimated coefficients $\hat{\beta}$ can be interpreted as the importance of each predictor variable for predicting the response variable, conditional on all other variables in the model being held fixed, and
+- the sign of the estimated coefficients $\hat{\beta}$ indicates the direction of the relationship between the predictor variable and the response variable, conditional on all other variables in the model. 
+
+If the covariates/features are not on the same scale, then it is more appropriate to compare the scaled coefficients (i.e., $\frac{\hat{\beta}}{\sigma}$) rather than the coefficients themselves.
+
+Note importantly that these regression coefficients **cannot** be interpreted as "statistically significant" without additional work and assumptions.
+:::
+
+::: {.callout-warning title="Regularized logistic regression and regularized generalized linear models" collapse="true"}
+
+Again, similar to linear regression, regularized linear regression can be extended to regularized generalized linear models to handle different types of response variables (e.g., binary, count, etc.). Given data $\mathbf{X} \in \mathbb{R}^{n \times p}$ and response $\mathbf{y} \in \mathbb{R}^n$, regularized generalized linear models solve:
+
+$$
+\hat{\boldsymbol{\beta}} = \underset{\boldsymbol{\beta} \in \mathbb{R}^p}{\operatorname{argmin}} \;\; \frac{1}{n} \sum_{i=1}^n \ell \left(y_i ,\; g^{-1}(\beta_1 X_{i1} + \ldots + \beta_p X_{ip}) \right) + \lambda P(\boldsymbol{\beta}),
+$$
+
+where 
+
+- $\ell$ is a loss function which at a high-level measures the discrepancy between the observed response $y_i$ and the predicted response $g^{-1}(\beta_1 X_{i1} + \ldots + \beta_p X_{ip})$,
+- $g^{-1}$ is the inverse link function that maps the linear combination of features to the target domain of the response variable, and 
+- $\lambda P(\boldsymbol{\beta})$ is the regularization term as before.
+
+For example, in linear regression, the link function is the identify function (i.e., $g^{-1}(x) = x$), and the loss function is the $\ell_2$-loss (i.e., $\ell(y, z) = (y - z)^2$). For binary classification tasks, logistic regression is typically the generalized linear model of choice. The loss function in logistic regression is the negative log-likelihood function, and the link function in logistic regression is the logistic function, which maps the linear combination of features to the interval $[0, 1]$, corresponding to the probability of the positive class. 
+
+:::
+
+#### Summary {.unnumbered}
+
+- Regularized linear regression is simply a *linear* model, which has been regularized to prevent overfitting and improve generalizability. 
+- This regularization occurs by applying different penalties on the estimated coefficients $\hat{\boldsymbol{\beta}}$. Each penalty induces different properties on the estimated coefficients and generally shrinks the coefficients towards zero.
+- The strength of regularization is controlled by the hyperparameter $\lambda$, which can be tuned via cross-validation.
+- Regularized regression is particularly useful when the number of features $p$ is greater than the number of observations $n$, but it can also be used in low-dimensional settings (i.e., when $n > p$) with great success.
+
+
+#### Implementation {.unnumbered}
+
+::: {.panel-tabset}
+
+##### R (glmnet)
+
+::: {.panel-tabset .nav-pills}
+
+###### Regression
+
+```{r}
+#| results: hold
+
+# for lasso, set alpha = 1
+# for ridge, set alpha = 0
+# for elastic net, set alpha between 0 and 1
+alpha <- 0
+
+# scale data
+X_spotify_train_scaled <- scale(
+  X_spotify_train, center = TRUE, scale = TRUE
+)
+# apply same scaling to test data
+X_spotify_test_scaled <- scale(
+  X_spotify_test, 
+  center = attr(X_spotify_train_scaled, "scaled:center"), 
+  scale = attr(X_spotify_train_scaled, "scaled:scale")
+)
+
+# fit regularized linear regression
+glmnet_reg <- glmnet::cv.glmnet(
+  x = X_spotify_train_scaled, y = y_spotify_train,
+  alpha = alpha, family = "gaussian"
+)
+
+# make predictions 
+# (can use predict with s = "lambda.1se" or "lambda.min" for best lambda)
+y_preds <- c(predict(glmnet_reg, X_spotify_test_scaled, s = "lambda.1se"))
+
+# CV error plot
+plot(glmnet_reg, main = "Cross-Validation Error Plot\n\n")
+
+# Regularization path
+plt <- broom::tidy(glmnet_reg$glmnet.fit, return_zeros = TRUE) |> 
+  dplyr::filter(term != "(Intercept)") |> 
+  ggplot2::ggplot() +
+  ggplot2::aes(x = log(lambda), y = estimate, color = term, group = term) +
+  ggplot2::geom_line() +
+  ggplot2::labs(y = "Coefficient Estimate", color = "Variable") +
+  ggplot2::theme_minimal()
+plotly::ggplotly(plt)
+
+# print out model information (estimated coefficients and best lambdas)
+broom::glance(glmnet_reg)
+broom::tidy(glmnet_reg$glmnet.fit) |> 
+  dplyr::filter(lambda == glmnet_reg$lambda.1se)
+
+# evaluate predictions
+results <- evaluate_predictions(y_true = y_spotify_test, y_pred = y_preds)
+```
+
+```{r}
+#| results: hold
+
+results$plot
+cat("Global Prediction Performance Metrics")
+vthemes::pretty_kable(results$metrics)
+```
+
+
+###### Classification
+
+```{r}
+#| results: hold
+
+# for lasso, set alpha = 1
+# for ridge, set alpha = 0
+# for elastic net, set alpha between 0 and 1
+alpha <- 0
+
+# scale data
+X_wine_train_scaled <- scale(X_wine_train, center = TRUE, scale = TRUE)
+# apply same scaling to test data
+X_wine_test_scaled <- scale(
+  X_wine_test, 
+  center = attr(X_wine_train_scaled, "scaled:center"), 
+  scale = attr(X_wine_train_scaled, "scaled:scale")
+)
+
+# fit regularized logistic regression
+glmnet_class <- glmnet::cv.glmnet(
+  x = X_wine_train_scaled, y = y_wine_train,
+  alpha = alpha, family = "binomial"
+)
+
+# make predictions 
+# (can use predict with s = "lambda.1se" or "lambda.min" for best lambda)
+y_prob_preds <- c(predict(
+  glmnet_class, X_wine_test_scaled, s = "lambda.1se", type = "response"
+))
+y_class_preds <- c(predict(
+  glmnet_class, X_wine_test_scaled, s = "lambda.1se", type = "class"
+)) |> 
+  factor(levels = quality_levels)
+
+# CV error plot
+plot(glmnet_class, main = "Cross-Validation Error Plot\n\n")
+
+# Regularization path
+plt <- broom::tidy(glmnet_class$glmnet.fit, return_zeros = TRUE) |> 
+  dplyr::filter(term != "(Intercept)") |> 
+  ggplot2::ggplot() +
+  ggplot2::aes(x = log(lambda), y = estimate, color = term, group = term) +
+  ggplot2::geom_line() +
+  ggplot2::labs(y = "Coefficient Estimate", color = "Variable") +
+  ggplot2::theme_minimal()
+plotly::ggplotly(plt)
+
+# print out model information (estimated coefficients and best lambdas)
+broom::glance(glmnet_class)
+broom::tidy(glmnet_class$glmnet.fit) |> 
+  dplyr::filter(lambda == glmnet_class$lambda.1se)
+
+# evaluate predictions
+results <- evaluate_predictions(
+  y_true = y_wine_test, y_pred = y_class_preds, y_prob_pred = y_prob_preds,
+  mode = "classification"
+)
+```
+
+```{r}
+#| results: hold
+
+results$plot
+cat("Global Prediction Performance Metrics")
+vthemes::pretty_kable(results$metrics)
+cat("Confusion Matrix")
+vthemes::pretty_kable(results$confusion)
+```
+:::
+
+
+##### R (caret)
+
+::: {.panel-tabset .nav-pills}
+
+###### Regression
+
+```{r}
+#| results: hold
+
+# for lasso, set alpha = 1
+# for ridge, set alpha = 0
+# for elastic net, set alpha between 0 and 1
+alpha <- 0
+
+# set training options
+cv_nfolds <- 10
+train_control <- caret::trainControl(
+  method = "cv",
+  number = cv_nfolds # do 10-fold CV
+)
+
+# scale data
+X_spotify_train_scaled <- scale(
+  X_spotify_train, center = TRUE, scale = TRUE
+)
+# apply same scaling to test data
+X_spotify_test_scaled <- scale(
+  X_spotify_test, 
+  center = attr(X_spotify_train_scaled, "scaled:center"), 
+  scale = attr(X_spotify_train_scaled, "scaled:scale")
+)
+
+# fit regularized linear regression
+glmnet_reg <- caret::train(
+  x = X_spotify_train_scaled,
+  y = y_spotify_train,
+  method = "glmnet",
+  trControl = train_control,
+  tuneGrid = data.frame(
+    alpha = alpha,
+    lambda = 10^seq(-3, 3, length.out = 100)
+  )
+)
+
+# make predictions
+y_preds <- predict(glmnet_reg, X_spotify_test_scaled)
+
+# CV error plot
+ggplot2::ggplot(glmnet_reg$results) + 
+  ggplot2::aes(x = log(lambda), y = RMSE) +
+  ggplot2::geom_line() +
+  ggplot2::geom_errorbar(
+    ggplot2::aes(
+      # show +/- 1 standard error of the mean as error bars
+      ymin = RMSE - RMSESD / sqrt(cv_nfolds), 
+      ymax = RMSE + RMSESD / sqrt(cv_nfolds)
+    ),
+    width = 0.1
+  ) +
+  ggplot2::labs(title = "Cross-Validation Error Plot") +
+  ggplot2::theme_minimal()
+
+# Regularization path
+plt <- broom::tidy(glmnet_reg$finalModel, return_zeros = TRUE) |> 
+  dplyr::filter(term != "(Intercept)") |> 
+  ggplot2::ggplot() +
+  ggplot2::aes(x = log(lambda), y = estimate, color = term, group = term) +
+  ggplot2::geom_line() +
+  ggplot2::labs(y = "Coefficient Estimate", color = "Variable") +
+  ggplot2::theme_minimal()
+plotly::ggplotly(plt)
+
+# print out model information
+cat("Best hyperparameters:")
+glmnet_reg$bestTune
+
+# evaluate predictions
+results <- evaluate_predictions(y_true = y_spotify_test, y_pred = y_preds)
+```
+
+```{r}
+#| results: hold
+
+results$plot
+cat("Global Prediction Performance Metrics")
+vthemes::pretty_kable(results$metrics)
+```
+
+###### Classification
+
+```{r}
+#| results: hold
+
+# for lasso, set alpha = 1
+# for ridge, set alpha = 0
+# for elastic net, set alpha between 0 and 1
+alpha <- 0
+
+# set training options
+cv_nfolds <- 10
+train_control <- caret::trainControl(
+  method = "cv",
+  number = cv_nfolds, # do 10-fold CV
+  classProbs = TRUE
+)
+
+# scale data
+X_wine_train_scaled <- scale(
+  X_wine_train, center = TRUE, scale = TRUE
+)
+# apply same scaling to test data
+X_wine_test_scaled <- scale(
+  X_wine_test, 
+  center = attr(X_wine_train_scaled, "scaled:center"), 
+  scale = attr(X_wine_train_scaled, "scaled:scale")
+)
+
+# fit regularized logistic regression
+glmnet_class <- caret::train(
+  x = X_wine_train_scaled,
+  y = y_wine_train,
+  method = "glmnet",
+  trControl = train_control,
+  tuneGrid = data.frame(
+    alpha = alpha,
+    lambda = 10^seq(-3, 3, length.out = 100)
+  ),
+  family = "binomial"
+)
+
+# make predictions
+# (can use predict with s = "lambda.1se" or "lambda.min" for best lambda)
+y_class_preds <- predict(glmnet_class, X_wine_test_scaled, type = "raw")
+y_prob_preds <- predict(glmnet_class, X_wine_test_scaled, type = "prob")
+
+# CV error plot
+ggplot2::ggplot(glmnet_class$results) + 
+  ggplot2::aes(x = log(lambda), y = Accuracy) +
+  ggplot2::geom_line() +
+  ggplot2::geom_errorbar(
+    ggplot2::aes(
+      # show +/- 1 standard error of the mean as error bars
+      ymin = Accuracy - AccuracySD / sqrt(cv_nfolds), 
+      ymax = Accuracy + AccuracySD / sqrt(cv_nfolds)
+    ),
+    width = 0.1
+  ) +
+  ggplot2::labs(title = "Cross-Validation Error Plot") +
+  ggplot2::theme_minimal()
+
+# Regularization path
+plt <- broom::tidy(glmnet_class$finalModel, return_zeros = TRUE) |> 
+  dplyr::filter(term != "(Intercept)") |> 
+  ggplot2::ggplot() +
+  ggplot2::aes(x = log(lambda), y = estimate, color = term, group = term) +
+  ggplot2::geom_line() +
+  ggplot2::labs(y = "Coefficient Estimate", color = "Variable") +
+  ggplot2::theme_minimal()
+plotly::ggplotly(plt)
+
+# print out model information
+cat("Best hyperparameters:")
+glmnet_class$bestTune
+
+# evaluate predictions
+results <- evaluate_predictions(
+  y_true = y_wine_test, y_pred = y_class_preds, y_prob_pred = y_prob_preds$good,
+  mode = "classification"
+)
+```
+
+```{r}
+#| results: hold
+
+results$plot
+cat("Global Prediction Performance Metrics")
+vthemes::pretty_kable(results$metrics)
+cat("Confusion Matrix")
+vthemes::pretty_kable(results$confusion)
+```
+
+:::
+
+##### Python
+
+::: {.panel-tabset .nav-pills}
+
+###### Regression
+
+```{python}
+#| results: hold
+
+from sklearn.linear_model import LassoCV, RidgeCV, ElasticNetCV
+from sklearn.preprocessing import StandardScaler
+
+# standardize data
+scaler = StandardScaler()
+scaler.fit(X_spotify_train)
+X_spotify_train_scaled = scaler.transform(X_spotify_train)
+X_spotify_test_scaled = scaler.transform(X_spotify_test)
+
+# choose model
+# model = LassoCV(alphas=np.logspace(-3, 3, 100), cv=10) # uncomment for lasso
+model = RidgeCV(alphas=np.logspace(-3, 3, 100), cv=10) # uncomment for ridge
+# model = ElasticNetCV(alphas=np.logspace(-3, 3, 100), l1_ratio=0.5, cv=10) # uncomment for elastic net (can also change l1_ratio)
+
+# fit regularized linear regression
+model.fit(X_spotify_train_scaled, y_spotify_train)
+
+# make predictions
+y_preds = model.predict(X_spotify_test_scaled)
+
+# look at coefficients
+pd.DataFrame({"feature": X_spotify.columns, "coefficient": model.coef_})
+```
+
+```{python}
+#| results: hold
+
+results = evaluate_predictions(y_spotify_test, y_preds)
+print("Global Prediction Performance Metrics")
+results["metrics"]
+```
+
+###### Classification
+
+```{python}
+#| results: hold
+
+from sklearn.linear_model import LogisticRegressionCV
+from sklearn.preprocessing import StandardScaler
+
+# standardize data
+scaler = StandardScaler()
+scaler.fit(X_wine_train)
+X_wine_train_scaled = scaler.transform(X_wine_train)
+X_wine_test_scaled = scaler.transform(X_wine_test)
+
+# choose model
+penalty = "l2"  # l1 for lasso, l2 for ridge, 'elasticnet' for elastic net
+model = LogisticRegressionCV(
+  Cs=np.logspace(-3, 3, 100), cv=10, penalty=penalty,
+  # may need to change solver depending on the penalty; see LogisticRegressionCV() docs for options
+  solver='lbfgs' 
+)
+
+# fit regularized logistic regression
+model.fit(X_wine_train_scaled, y_wine_train)
+
+# make predictions
+y_class_preds = model.predict(X_wine_test_scaled)
+y_prob_preds = model.predict_proba(X_wine_test_scaled)
+
+# look at coefficients
+pd.DataFrame({"feature": X_wine.columns, "coefficient": model.coef_[0]})
+```
+
+```{python}
+#| results: hold
+
+results = evaluate_predictions(y_wine_test, y_class_preds, y_prob_pred=y_prob_preds[:, 1], mode="classification")
+print("Global Prediction Performance Metrics")
+results["metrics"]
+print("Confusion Matrix")
+results["confusion"]
+```
+
+:::
+
+:::
+
+### Random Forests
+
+Up to this point, all of the models that have been discussed are linear models (as a function of $\mathbf{X}$). 
+Such linear models can be restrictive in many real-world scenarios where the relationship between the predictors and the response is non-linear.
+One simple but powerful non-linear maching learning algorithm is the **random forest**. Before introducing random forests however, we first need to introduce *decision trees*, which are the core building block of random forests.
+
+#### What is a decision tree? {.unnumbered}
+
+A decision tree is simply a sequence of binary yes/no decisions based upon certain features and their feature values in the data. 
+@fig-decision-tree-reg and @fig-decision-tree-class give examples of a simple decision tree for predicting the number of monthly spotify streams and the quality of wine (bad vs good), respectively. 
+
+::: {.panel-tabset}
+
+##### Regression
+
+```{r}
+#| fig-cap: "Example of a regression decision tree for predicting average monthly spotify streams."
+#| label: fig-decision-tree-reg
+#| code-fold: true
+
+rpart_out <- rpart::rpart(
+  formula = streams_per_month ~ .,
+  data = spotify_train, 
+  # restrict maximum depth of the tree for didactic purposes
+  control = rpart::rpart.control(maxdepth = 2)
+)
+rpart.plot::rpart.plot(
+  rpart_out, type = 5, extra = 1, digits = 3
+)
+```
+
+##### Classification
+
+```{r}
+#| fig-cap: "Example of a classification decision tree for predicting wine quality (bad/good)."
+#| label: fig-decision-tree-class
+#| echo: false
+
+rpart_out <- rpart::rpart(
+  formula = quality ~ ., 
+  data = wine_train,  
+  method = "class", 
+  # restrict maximum depth of the tree for didactic purposes
+  control = rpart::rpart.control(maxdepth = 2)
+)
+rpart.plot::rpart.plot(rpart_out, type = 5, extra = 0)
+```
+
+:::
+
+**How do we "read" a decision tree?**
+
+During the fitting or training of the decision tree, a feature and a threshold were chosen at each *node* in the decision tree to split the data into two groups. 
+For example, in the regression tree (@fig-decision-tree-reg), the first (root) split checks whether or not the song is in more than or less than 2941 spotify playlists. 
+That is, given a song, if `in_spotify_playlists < 2941`, then we will proceed down the left side of the tree, and if `in_spotify_playlists >= 2941`, then we will proceed down the right side of the tree. 
+We can continue traversing the tree in this manner until we reach a leaf node, where the final prediction for that given song is made.
+For example, if a song is in over 2941 Spotify playlists and is in more than 295 Deezer playlists, then the song will fall into the rightmost leaf node, and the predicted number of monthly streams (on the log-scale) is 18.5 according to @fig-decision-tree-reg.
+
+**How do we "fit" a decision tree?**
+
+Fitting a decision tree boils down to three parts: (1) determining how to select the best feature and threshold to split on at each node in the tree, (2) determining how to make predictions at each leaf node, and (3) determining when to stop growing the tree.
+
+1. ***How do we identify the best feature and threshold at each split?***
+    
+    <details>
+    <summary>Learn more</summary>
+    Typically, the feature and threshold that are chosen to split the data at each node are those that maximize (or minimize) some splitting criterion. 
+The most common splitting criterion is known as the *decrease in impurity*, which rewards the feature and threshold that split the data into two very "pure" (or homogeneous) groups.
+    <ul>
+    <li>In the wine quality problem, an example of two "pure" groups would be the case where all wines in one group are of good quality while all wines in the other group are of bad quality</li>
+    <li>In constrast, an example of two "impure" groups would be the case where both groups contains an equal mix of good and bad quality wines.</li>
+    </ul>
+    The *decrease in impurity* is a metric which quantifies the amount of "purity" or "impurity" and is more precisely defined as the decrease in variance from the parent node to the child nodes (see @fig-decrease-in-impurity).
+    
+    ![Definition of decrease in impurity $\Delta$ for a particular node $s_1$.](../../../_site/images/decrease_in_impurity.png){#fig-decrease-in-impurity}
+    
+    Using the measure of impurity decrease, the decision tree algorithm will search over all possible features and all possible thresholds at each split to identify the feature and threshold combination that maximize the impurity decrease and thus result in highly homogeneous groups with respect to the target variable. 
+    </details>
+
+2. ***How do we make predictions at each leaf node?***
+
+    <details>
+    <summary>Learn more</summary>
+    - For regression, the predictions at each leaf node are typically made by looking at all of the training observations that fell in that leaf node and taking the average of their response values. In other words, the predicted value at a leaf node is the average of the response values of the training observations that ended up in that leaf node.
+    - For classification, the predictions at each leaf node are typically made by taking the majority vote of the training observations that fell in that leaf node. In other words, the predicted class in a leaf node is the class that appears most frequently in the training observations that ended up in that leaf node.
+    </details>
+
+3. ***How do we determine when to stop growing the tree?***
+
+    <details>
+    <summary>Learn more</summary>
+    There are several different "stopping" or "pruning" approaches that are commonly used. 
+    These include specifying hyperparameters such as the maximum depth of the tree, the minimum number of samples in each leaf node, and the minimum decrease in impurity that must be achieved in order to split a node. 
+    Cross-validation can also be used to tune these hyperparameters to obtain the optimal tree size.
+    </details>
+
+#### What is a random forest? {.unnumbered}
+
+A random forest is simply a collection (or ensemble) of decision trees where randomness has been injected in two key ways:
+
+1. Each decision tree has been trained on a random bootstrap sample of the training data (as opposed to the full training data), and
+2. At each split, a random subset of the features is considered for splitting (as opposed to searching over all features).
+
+The predictions of the random forest are then made by averaging the predictions of all the individual decision trees (for regression) or taking a majority vote (for classification). 
+
+![Overview of random forest algorithm. First, an ensemble of decision trees are trained using the training data. Then, to make an individual prediction using this random forest, predictions are averaged across all decision trees in the forest.](../../../_site/images/rf.png){#fig-rf}
+
+::: {.callout-note title="Why do random forests work?" collapse="true"}
+
+The key reason behind why random forests work is the concept of the **bias-variance tradeoff**. 
+Without going into too much detail, the bias-variance tradeoff is a fundamental concept in machine learning that describes the tradeoff between the model's ability to capture the true underlying relationship between the predictors and the response (bias) and the model's ability to generalize to new, unseen data (variance).
+In an ideal world, we would like a model that has both low bias (i.e., can capture the true underlying relationship) and low variance (i.e., can generalize well to new data).
+
+Keeping this bias-variance tradeoff in mind, the idea behind random forests is to:
+
+- First, train very *deep* decision trees so that each individual decision tree is flexible enough to capture almost any relationship between the predictors and the response. Thus, each decision tree should have low bias, albeit at the cost of very high variance.
+- Second, inject randomness into the training process (using bootstrapping and feature subsampling as discussed previously) so that each decision tree is somewhat "independent" of the other decision trees. By averaging across many independent decision trees, we can actually reduce the variance of the ensembled model. 
+    - Why is this? Recall that if we have $T$ independent random variables, each with variance $\sigma^2$, then the variance of the average of these random variables is $\frac{\sigma^2}{T}$. This is to say that as the number of trees $T$ grows large enough, then we can effectively reduce the variance of our model, thereby achieving both low bias and low variance in the random forest.
+:::
+
+**Random forest hyperparameters:** 
+There are several hyperparameters that can be tuned in a random forest. 
+However, random forests often work quite well with simple "default" hyperparameters.
+We discuss the most common hyperparameters in random forests and their defaults below:
+
+- *Number of trees in the forest* (`num.trees` in R and `n_estimators` in Python): Typically 100-500 trees is reasonable. More trees will generally lead to better performance but at the cost of increased computational time. There is often a point of diminishing returns, where after some point (often 100-500 trees), the increase in performance from addition more trees is minimal.
+- *Feature subsampling fraction* (`mtry` in R and `max_features` in Python): This is the fraction of features that are randomly selected at each split. For regression, $\frac{p}{3}$ features is often a good choice, and for classification, $\sqrt{p}$ features is often a good choice, where $p$ is the number of features in $\mathbf{X}$.
+- *Minimum node size* (`min.node.size` in R and `min_samples_leaf` in Python): This is the minimum number of samples required to split a node. A smaller minimum node size will lead to deeper and more complex trees with more splits. For regression, a minimum node size of 5 is often a good default choice, and for classification, a minimum node size of 1 is often a good default choice.
+
+::: {.callout-tip title="How does centering and scaling $\mathbf{X}$ affect trees and random forests?" collapse="true"}
+
+Since each split in a decision tree (and hence, a random forest) is based upon a single feature and whether or not that feature's value is greater than or less than a certain threshold, the center/scale of the features in $\mathbf{X}$ does not matter during training.
+Put differently, the predictions from decision trees and random forests will not change if the features in $\mathbf{X}$ are centered and scaled.
+The only thing that matters is the relative ordering of the feature values in $\mathbf{X}$.
+
+However, as in all machine learning methods, it is important that the test data is preprocessed in the same manner as the data used from training. In particular, if the training data were centered and scaled, then it is crucial to also center and scale the test data using the same procedure.
+:::
+
+::: {.callout-caution title="How do we interpret trees and random forests?" collapse="true"}
+
+Admittedly, random forests are not as interpretable as linear models.
+However, there are several ways to measure *feature importance* in a random forest.
+These feature importances can give us some insight into which features are most important for making predictions in the random forest.
+
+The most popular feature importance measure for a random forest is the **mean decrease in impurity** (MDI) (also known as the *Gini importance* for classification problems).
+MDI measures how much each feature decreases the impurity of the node (or nodes) that it is used to split.
+More specifically, the MDI for a feature $k$ is computed by taking a weighted average of the *decrease in impurity* across all nodes in the random forest where feature $k$ is used to split the data.
+The weights are essentially the number of samples in each node so that nodes with more samples have a larger impact on the mean decrease in impurity.
+In general, a higher MDI indicates that this feature is more important for making predictions in the random forest.
+:::
+
+
+#### Summary {.unnumbered}
+
+- A random forest is an ensemble of decision trees where randomness has been injected in the training process to reduce the variance of the model.
+- Predictions from a random forest are simply the average of the predictions from all the individual decision trees in the forest.
+- Random forests are particularly advantageous given that it can model nonlinear structure, is invariant to the scale of the features in $\mathbf{X}$, and works well without much hyperparameter tuning.
+
+#### Implementation {.unnumbered}
+
+::: {.panel-tabset}
+
+##### R (ranger)
+
+::: {.panel-tabset .nav-pills}
+
+###### Regression
+
+```{r}
+#| results: hold
+
+# fit model
+rf_reg <- ranger::ranger(
+  x = X_spotify_train,
+  y = y_spotify_train,
+  # choose number of trees
+  num.trees = 500, 
+  # choose feature subsampling fraction (often p/3 works well for regression)
+  mtry = round(ncol(X_spotify_train) / 3),
+  # choose minimum node size (often 5 works well for regression)
+  min.node.size = 5,
+  # compute feature importances using mean decrease in impurity
+  importance = "impurity"
+)
+
+# make predictions 
+y_preds <- predict(rf_reg, data = X_spotify_test)$predictions
+
+# look at variable importances
+tibble::tibble(
+  feature = names(rf_reg$variable.importance),
+  importance = rf_reg$variable.importance
+) |> 
+  dplyr::arrange(-importance)
+
+# evaluate predictions
+results <- evaluate_predictions(y_true = y_spotify_test, y_pred = y_preds)
+```
+
+```{r}
+#| results: hold
+
+results$plot
+cat("Global Prediction Performance Metrics")
+vthemes::pretty_kable(results$metrics)
+```
+
+
+###### Classification
+
+```{r}
+#| results: hold
+
+# fit model
+rf_class <- ranger::ranger(
+  x = X_wine_train,
+  y = y_wine_train,
+  classification = TRUE,
+  # choose number of trees
+  num.trees = 500, 
+  # choose feature subsampling fraction (often sqrt(p) works well for classification)
+  mtry = round(sqrt(ncol(X_wine_train))),
+  # choose minimum node size (often 1 works well for classification)
+  min.node.size = 1,
+  # compute feature importances using mean decrease in impurity
+  importance = "impurity"
+)
+
+# make predictions 
+y_class_preds <- predict(rf_class, data = X_wine_test)$predictions
+# predicted probabilities are computed by taking average class prediction across all trees
+y_prob_preds <- predict(
+  rf_class, data = X_wine_test, predict.all = TRUE
+)$predictions |> 
+  apply(1, mean)
+y_prob_preds <- y_prob_preds - 1  # convert to be between 0 and 1
+
+# look at variable importances
+tibble::tibble(
+  feature = names(rf_class$variable.importance),
+  importance = rf_class$variable.importance
+) |> 
+  dplyr::arrange(-importance)
+
+# evaluate predictions
+results <- evaluate_predictions(
+  y_true = y_wine_test, y_pred = y_class_preds, y_prob_pred = y_prob_preds,
+  mode = "classification"
+)
+```
+
+```{r}
+#| results: hold
+
+results$plot
+cat("Global Prediction Performance Metrics")
+vthemes::pretty_kable(results$metrics)
+cat("Confusion Matrix")
+vthemes::pretty_kable(results$confusion)
+```
+:::
+
+
+##### R (caret)
+
+::: {.panel-tabset .nav-pills}
+
+###### Regression
+
+```{r}
+#| results: hold
+
+# set training options
+cv_nfolds <- 10
+train_control <- caret::trainControl(
+  method = "cv",
+  number = cv_nfolds # do 10-fold CV
+)
+
+# fit model and tune hyperparameters
+rf_reg <- caret::train(
+  x = as.data.frame(X_spotify_train),
+  y = y_spotify_train,
+  method = "ranger",
+  trControl = train_control,
+  tuneGrid = expand.grid(
+    mtry = c(3, 6, 9),
+    splitrule = "variance",
+    min.node.size = c(1, 3, 5, 10)
+  ),
+  importance = "impurity"
+)
+
+# make predictions
+y_preds <- predict(rf_reg, X_spotify_test)
+
+# CV error plot
+ggplot2::ggplot(rf_reg) +
+  ggplot2::labs(title = "Cross-Validation Error Plot") +
+  ggplot2::theme_minimal()
+
+# print out model information
+cat("Best hyperparameters:")
+rf_reg$bestTune
+
+# look at variable importances
+tibble::tibble(
+  feature = names(rf_reg$finalModel$variable.importance),
+  importance = rf_reg$finalModel$variable.importance
+) |> 
+  dplyr::arrange(-importance)
+
+# evaluate predictions
+results <- evaluate_predictions(y_true = y_spotify_test, y_pred = y_preds)
+```
+
+```{r}
+#| results: hold
+
+results$plot
+cat("Global Prediction Performance Metrics")
+vthemes::pretty_kable(results$metrics)
+```
+
+###### Classification
+
+```{r}
+#| results: hold
+
+# set training options
+cv_nfolds <- 10
+train_control <- caret::trainControl(
+  method = "cv",
+  number = cv_nfolds, # do 10-fold CV
+  classProbs = TRUE
+)
+
+# fit model
+rf_class <- caret::train(
+  x = as.data.frame(X_wine_train),
+  y = y_wine_train,
+  method = "ranger",
+  trControl = train_control,
+  tuneGrid = expand.grid(
+    mtry = c(3, 6, 9),
+    splitrule = "gini",
+    min.node.size = c(1, 3, 5, 10)
+  ),
+  importance = "impurity"
+)
+
+# make predictions
+y_class_preds <- predict(rf_class, X_wine_test, type = "raw")
+y_prob_preds <- predict(rf_class, X_wine_test, type = "prob")
+
+# CV error plot
+ggplot2::ggplot(rf_class) +
+  ggplot2::labs(title = "Cross-Validation Error Plot") +
+  ggplot2::theme_minimal()
+
+# print out model information
+cat("Best hyperparameters:")
+rf_class$bestTune
+
+# look at variable importances
+tibble::tibble(
+  feature = names(rf_class$finalModel$variable.importance),
+  importance = rf_class$finalModel$variable.importance
+) |> 
+  dplyr::arrange(-importance)
+
+# evaluate predictions
+results <- evaluate_predictions(
+  y_true = y_wine_test, y_pred = y_class_preds, y_prob_pred = y_prob_preds$good,
+  mode = "classification"
+)
+```
+
+```{r}
+#| results: hold
+
+results$plot
+cat("Global Prediction Performance Metrics")
+vthemes::pretty_kable(results$metrics)
+cat("Confusion Matrix")
+vthemes::pretty_kable(results$confusion)
+```
+
+:::
+
+
+##### Python
+
+::: {.panel-tabset .nav-pills}
+
+###### Regression
+
+```{python}
+#| results: hold
+
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import GridSearchCV
+
+model = RandomForestRegressor(
+  # choose number of trees
+  n_estimators=500, 
+  # choose feature subsampling fraction (often p/3 works well for regression)
+  max_features=0.33, 
+  # choose minimum node size (often 5 works well for regression)
+  min_samples_leaf=5
+)
+# tune these hyperparameters
+param_grid = {
+  "max_features": [0.25, 0.33, 0.5],
+  "min_samples_leaf": [1, 3, 5, 10]
+}
+
+# instantiate CV grid search
+grid_search = GridSearchCV(
+  model, param_grid=param_grid, cv=10
+)
+# fit RF and do CV to tune hyperparameters
+grid_search.fit(X_spotify_train, y_spotify_train)
+
+# make predictions using best model
+y_preds = grid_search.predict(X_spotify_test)
+
+# look at cv errors
+pd.DataFrame(grid_search.cv_results_).sort_values("rank_test_score")
+
+# look at variable importances
+pd.DataFrame({
+  "feature": X_spotify.columns, 
+  "importance": grid_search.best_estimator_.feature_importances_
+})
+```
+
+```{python}
+#| results: hold
+
+results = evaluate_predictions(y_spotify_test, y_preds)
+print("Global Prediction Performance Metrics")
+results["metrics"]
+```
+
+###### Classification
+
+```{python}
+#| results: hold
+
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import GridSearchCV
+
+model = RandomForestClassifier(
+  # choose number of trees
+  n_estimators=500, 
+  # choose feature subsampling fraction (often sqrt(p) works well for classification)
+  max_features="sqrt", 
+  # choose minimum node size (often 1 works well for classification)
+  min_samples_leaf=1
+)
+# tune these hyperparameters
+param_grid = {
+  "max_features": [0.25, 0.33, 0.5],
+  "min_samples_leaf": [1, 3, 5, 10]
+}
+
+# instantiate CV grid search
+grid_search = GridSearchCV(
+  model, param_grid=param_grid, cv=10
+)
+# fit RF and do CV to tune hyperparameters
+grid_search.fit(X_wine_train, y_wine_train)
+
+# make predictions using best model
+y_class_preds = grid_search.predict(X_wine_test)
+y_prob_preds = grid_search.predict_proba(X_wine_test)
+
+# look at cv errors
+pd.DataFrame(grid_search.cv_results_).sort_values("rank_test_score")
+
+# look at variable importances
+pd.DataFrame({
+  "feature": X_wine.columns, 
+  "importance": grid_search.best_estimator_.feature_importances_
+})
+```
+
+```{python}
+#| results: hold
+
+results = evaluate_predictions(y_wine_test, y_class_preds, y_prob_pred=y_prob_preds[:, 1], mode="classification")
+print("Global Prediction Performance Metrics")
+results["metrics"]
+print("Confusion Matrix")
+results["confusion"]
+```
+
+:::
+
+:::
+
+### Deep Learning
+
+**Deep learning** is a subfield of machine learning that focuses on training neural networks with many layers (hence the term "deep") to learn complex patterns in data.
+Given that there are full semester-long courses and textbooks dedicated to deep learning, in no way, shape, or form will we attempt to cover the details of deep learning in this brief overview.
+Instead, we will only scratch the surface, focusing on the high-level idea behind neural network architectures, and point to additional resources for those interested in learning more.
+
+#### What is a neural network? {.unnumbered}
+
+Originally inspired by the structure of the human brain, a **neural network** is a machine learning model, composed of many layers of "neurons" (or "perceptrons") that are connected to each other in a network.
+
+Each **neuron** in a neural network operates by
+
+1. taking in a set of input features,
+2. multiplying each input feature by a weight,
+3. summing up these weighted inputs plus maybe a bias (aka intercept) term, and
+4. applying an *activation function* (typically a nonlinear but quick-to-compute function) to the sum of the weighted inputs
+    <details>
+    <summary>More on activation functions</summary>
+    The activation function of a neuron is a non-linear function that is applied to the sum of the weighted inputs of the neuron.
+    The activation function introduces non-linearity into the neural network, which allows the neural network to learn complex patterns in the data.
+    Some common activation functions include: 
+    
+    - *Rectified linear unit* (ReLU): $f(x) = \max(0, x)$ (arguably, the most popular activation function)
+    - *Sigmoid function*: $f(x) = \frac{1}{1 + e^{-x}}$
+    - *Hyperbolic tangent function* (tanh): $f(x) = \frac{e^x - e^{-x}}{e^x + e^{-x}}$
+    - *Softmax function*: $f(x_i) = \frac{e^{x_i}}{\sum_{j=1}^{K} e^{x_j}}$ (often used in the output layer for multi-class classification problems)
+    </details>
+
+to finally produce an output (see illustration in @fig-perceptron). 
+The output of one neuron is then passed as input to the next layer of neurons in the network, and this process is repeated until the final layer of the network produces the final output.
+
+![A single neuron (or perceptron) in a neural network. <a href="https://medium.com/@b.terryjack/introduction-to-deep-learning-feed-forward-neural-networks-ffnns-a-k-a-c688d83a309d">Credits: Mohammed Terry-Jack</a>](../../../_site/images/perceptron.gif){#fig-perceptron}
+
+These neurons can be combined in various ways or **architectures** to form different types of neural networks. 
+
+The simplest neural network architecture is the **feedforward neural network**, where the neurons are organized into layers and the output of one layer is passed forward as input to the next layer.
+The first layer of the network is known as the *input layer*, the last layer of the network is known as the *output layer*, and all layers in between the input and output layers are known as *hidden layers*.
+The term "feedforward" comes from the fact that the data flows from the input layer to the output layer without any feedback loops.
+A special type of feedforward neural network is the **multilayer perceptron (MLP)**, which is a fully-connected feedforward neural network with possibly multiple hidden layers (see @fig-feedforward-nn).
+Fully-connected here means that each neuron in one layer is connected to every neuron in the next layer (i.e., the output of each neuron in one layer is passed as input to every neuron in the next layer).
+
+![Multilayer perceptron with five hidden layers. <a href="https://medium.com/@b.terryjack/introduction-to-deep-learning-feed-forward-neural-networks-ffnns-a-k-a-c688d83a309d">Credits: Mohammed Terry-Jack</a>](../../../_site/images/feedforward_nn.png){#fig-feedforward-nn}
+
+Neural networks are incredibly flexible and powerful and can often lead to state-of-the-art prediction performance in many applications. 
+In fact, neural networks are known to be **universal function approximators**, meaning that given enough neurons and layers, a neural network can approximate any function to arbitrary precision.
+However, this flexibility also comes at a cost: Neural networks are often
+
+- more computationally expensive to train than other machine learning models
+- more difficult to interpret than other machine learning models
+- more difficult to tune than other machine learning models, as there are many hyperparameters and architecture choices (e.g., number of layers, number of neurons in each layer, learning rate, etc.)
+- require a large amount of training data to learn appropriate neuron weights and avoid overfitting.
+
+::: {.callout-note title="Common neural network architectures" collapse="true"}
+
+There are many different neural network architectures that have been developed over the years.
+Some common neural network architectures include:
+
+- **Multilayer Perceptrons (MLPs)**: These are the simplest form of neural networks where the neurons are organized into layers and the output of one layer is passed as input to the next layer. Here, the layers are fully connected, meaning that each neuron in one layer is connected to every neuron in the next layer. MLPs are typically used for regression and classification problems with tabular data (i.e., data with no additional special structure).
+- **Convolutional Neural Networks (CNNs)**: These neural networks use a special type of neuron known as a convolutional neuron that is able to learn spatial 2-D (or 3-D) patterns in the data. CNNs are especially powerful for image and video data and other types of data that have spatial structure.
+- **Recurrent Neural Networks (RNNs)**: RNNs are neural networks that are designed to work with sequential data (e.g., time series data, DNA sequences). RNNs use feedback loops that allow the network to maintain a "memory" of past inputs.
+- **Transformers**: Transformers are a recent advancement in deep learning that have been extremely powerful for natural language processing tasks such as machine translation, text generation, and text classification. Transformers are essentially the back-bone of many state-of-the-art large language models (e.g., ChatGPT). The key driver behind transformers is the *self-attention mechanism*, which is not only efficient to compute but also allows the model to assign different attention weights to different words in a sentence when making predictions.
+- **Generative Adversarial Networks (GANs)**: GANs are used for generative modeling tasks such as image generation, text generation, and music generation. GANs work by training two neural networks simultaneously: a generator network that generates new data samples and a discriminator network that tries to distinguish between real data samples and generated data samples. The generator network is trained to generate data samples that are indistinguishable from real data samples, while the discriminator network is trained to distinguish between real and generated data samples. The two networks are trained in an adversarial manner, where the generator tries to fool the discriminator and the discriminator tries to correctly classify the data samples.
+- **Autoencoders**: Autoencoders are a type of neural network, comprising of an "encoder" and a "decoder", that are used for unsupervised learning tasks such as dimensionality reduction, anomaly detection, and data denoising. Autoencoders work by learning to compress the input data into a lower-dimensional representation (i.e., the "encoder") and then reconstructing the original input data from this lower-dimensional representation (i.e., the "decoder").
+
+:::
+
+::: {.callout-caution title="How do we train a neural network?" collapse="true"}
+
+Training a neural network involves finding the weights of the neurons in the network that minimize some loss function, which generally quantifies how well the neural network is performing on the training data.
+In regression and classification tasks, the loss function is typically a measure of the difference between the predicted values of the neural network and the true values of the training data (e.g., mean squared error for regression and cross-entropy loss for classification).
+To minimize this loss function, the weights of the neurons are updated using an optimization algorithm known as **backpropagation**.
+This can be done using optimization algorithms such as stochastic gradient descent (SGD), Adam, or RMSprop.
+
+:::
+
+::: {.callout-tip title="How does centering and scaling $\mathbf{X}$ affect neural networks?" collapse="true"}
+
+When training a neural network, it is generally a good idea to center and scale/normalize the features in $\mathbf{X}$. 
+Common ways to do this include standardizing the features to have zero mean and unit variance or normalizing the features using min-max scaling to be between 0 and 1.
+Given the complex nonlinear optimization landscape of neural networks, centering and scaling the features can greatly help the optimization algorithm avoid numerical instabilities like vanishing or exploding gradients, which can slow down the training process or prevent the neural network from converging altogether.
+
+:::
+
+#### Additional Resources {.unnumbered}
+
+- [Neural Networks and Deep Learning](http://neuralnetworksanddeeplearning.com/)
+- [Dive into Deep Learning](https://d2l.ai/)
+
+#### Summary {.unnumbered}
+
+- A neural network is a machine learning model composed of many layers of neurons that are connected to each other in a network.
+- Neural networks are universal function approximators and thus can approximate any function given enough neurons, layers, and training data.
+- On the other hand, neural networks are often more challenging to train, interpret, and tune compared to other machine learning models.
+
+#### Implementation {.unnumbered}
+
+To build neural networks in practice, we typically use deep learning libraries that provide high-level APIs for building, training, and evaluating neural networks. 
+The two most popular deep learning libraries in Python are [**TensorFlow**](https://www.tensorflow.org/) and [**PyTorch**](https://pytorch.org/).
+For brevity, we will defer to the official documentation and tutorials for TensorFlow (see [here](https://www.tensorflow.org/tutorials)) and PyTorch (see [here](https://pytorch.org/tutorials/)) for more information on how to build and train neural networks using these libraries.
+Below, we will simply train a small MLP using the `MLPRegressor` and `MLPClassifier` classes from the `scikit-learn` library.
+
+::: {.panel-tabset}
+
+##### Python
+
+::: {.panel-tabset .nav-pills}
+
+###### Regression
+
+```{python}
+#| results: hold
+#| eval: false # don't evaluate; takes a long time
+
+from sklearn.neural_network import MLPRegressor
+from sklearn.model_selection import GridSearchCV
+
+model = MLPRegressor(
+  # choose hidden layer sizes (here, this has two hidden layers with 50 nodes each)
+  hidden_layer_sizes=(50, 50)
+)
+# tune these hyperparameters
+param_grid = {
+  "hidden_layer_sizes": [(50, 50), (100, 100), (100, 50)]
+}
+
+# instantiate CV grid search
+grid_search = GridSearchCV(
+  model, param_grid=param_grid, cv=10
+)
+# fit MLP and do CV to tune hyperparameters
+grid_search.fit(X_spotify_train, y_spotify_train)
+
+# make predictions using best model
+y_preds = grid_search.predict(X_spotify_test)
+
+# look at cv errors
+pd.DataFrame(grid_search.cv_results_).sort_values("rank_test_score")
+```
+
+```{python}
+#| results: hold
+#| eval: false
+
+results = evaluate_predictions(y_spotify_test, y_preds)
+print("Global Prediction Performance Metrics")
+results["metrics"]
+```
+
+###### Classification
+
+```{python}
+#| results: hold
+#| eval: false # don't evaluate; takes a long time
+
+from sklearn.neural_network import MLPClassifier
+from sklearn.model_selection import GridSearchCV
+
+model = MLPClassifier(
+  # choose hidden layer sizes (here, this has two hidden layers with 50 nodes each)
+  hidden_layer_sizes=(50, 50)
+)
+# uncomment to tune these hyperparameters (this may take a while)
+param_grid = {
+  "hidden_layer_sizes": [(50, 50), (100, 100), (100, 50)]
+}
+
+# instantiate CV grid search
+grid_search = GridSearchCV(
+  model, param_grid=param_grid, cv=10
+)
+# fit MLP and do CV to tune hyperparameters
+grid_search.fit(X_wine_train, y_wine_train)
+
+# make predictions using best model
+y_class_preds = grid_search.predict(X_wine_test)
+y_prob_preds = grid_search.predict_proba(X_wine_test)
+
+# look at cv errors
+pd.DataFrame(grid_search.cv_results_).sort_values("rank_test_score")
+```
+
+```{python}
+#| results: hold
+#| eval: false
+
+results = evaluate_predictions(y_wine_test, y_class_preds, y_prob_pred=y_prob_preds[:, 1], mode="classification")
+print("Global Prediction Performance Metrics")
+results["metrics"]
+print("Confusion Matrix")
+results["confusion"]
+```
+
+:::
+
+:::
+
+
+### AutoML
+
+Recently, there have been numerous advances in the development of **automated machine learning (AutoML)** packages, which aim to automate the feature engineering, model selection, ensembling, hyperparameter tuning, and training of machine learning models.
+
+Some popular AutoML tools include:
+
+- General-purpose AutoML packages:
+    - [AutoGluon](https://auto.gluon.ai/stable/index.html)
+    - [Auto-sklearn](https://automl.github.io/auto-sklearn/master/)
+    - [TPOT](https://epistasislab.github.io/tpot/)
+    - [H2O AutoML](https://docs.h2o.ai/h2o/latest-stable/h2o-docs/automl.html)
+- Hyperparameter optimization:
+    - [Hyperopt](https://hyperopt.github.io/hyperopt/)
+    - [Optuna](https://optuna.org/)
+    - [Ray Tune](https://docs.ray.io/en/latest/tune/index.html)
+    
+Each of these AutoML tools automates the ML pipeline in different ways, but they all aim to make the process of training and tuning state-of-the-art machine learning models easier and more accessible to non-experts. 
+
+Below, we provide an example usage using AutoGluon, a popular AutoML package, to train and evaluate machine learning models on the Spotify and wine quality datasets. 
+Briefly, AutoGluon's `TabularPredictor` automatically combines numerous machine learning models (including linear models, gradient boosting machines, random forests, neural networks, and more) in what we call a [stacked ensemble](https://medium.com/@brijesh_soni/stacking-to-improve-model-performance-a-comprehensive-guide-on-ensemble-learning-in-python-9ed53c93ce28#:~:text=Stacking%20is%20a%20powerful%20ensemble,predictions%20of%20many%20base%20models.) and performs hyperparameter optimization (using Bayesian optimization and other techniques) to make predictions on tabular data. 
+There are different training "presets" that can be used in AutoGluon's `TabularPredictor` to obtain different levels of model quality (e.g., `presets="medium_quality"`, `presets="high_quality"`, ...), but with higher quality presets typically requiring more computational resources and time.
+
+#### Implementation {.unnumbered}
+
+::: {.panel-tabset}
+
+##### Python (Autogluon)
+
+::: {.panel-tabset .nav-pills}
+
+###### Regression
+
+```{python}
+#| results: hold
+#| eval: false # don't evaluate; takes a long time
+
+from autogluon.tabular import TabularPredictor
+
+# instantiate tabular predictor
+model = TabularPredictor(
+  label="streams_per_month", problem_type="regression"
+)
+
+# fit model (can change presets to obtain "higher quality" results; see docs)
+spotify_train = X_spotify_train.copy()
+spotify_train["streams_per_month"] = y_spotify_train
+model.fit(spotify_train, presets="medium_quality")
+
+# make predictions using best model
+y_preds = model.predict(X_spotify_test)
+```
+
+```{python}
+#| results: hold
+#| eval: false
+
+results = evaluate_predictions(y_spotify_test, y_preds)
+print("Global Prediction Performance Metrics")
+results["metrics"]
+```
+
+###### Classification
+
+```{python}
+#| results: hold
+#| eval: false # don't evaluate; takes a long time
+
+from autogluon.tabular import TabularPredictor
+
+# instantiate tabular predictor
+model = TabularPredictor(
+  label="quality", problem_type="binary"
+)
+
+# fit model (can change presets to obtain "higher quality" results; see docs)
+wine_train = X_wine_train.copy()
+wine_train["quality"] = y_wine_train
+model.fit(wine_train, presets="medium_quality")
+
+# make predictions
+y_class_preds = model.predict(X_wine_test)
+y_prob_preds = model.predict_proba(X_wine_test)
+```
+
+```{python}
+#| results: hold
+#| eval: false
+
+results = evaluate_predictions(y_wine_test, y_class_preds, y_prob_pred=y_prob_preds[:, 1], mode="classification")
+print("Global Prediction Performance Metrics")
+results["metrics"]
+print("Confusion Matrix")
+results["confusion"]
+```
+
+:::
+
+:::
+
+
+### Other prediction methods
+
+Other popular machine learning prediction methods include:
+
+- k-nearest neighbors (regression/classification)
+- Kernel ridge regression (regression only)
+- Support vector machines (classification only)
+- Gradient boosting machines and XGBoost (regression/classification)
+- and many more...
+
+## Data Splitting Pitfalls
+
+::: {.panel-tabset}
+
+### Pitfall 1
+
+**Pitfall 1**: Randomly splitting the data into training, validation, and test sets for structured data (e.g., time series data, spatial data, etc.) can lead to data leakage and overly optimistic performance estimates.
+
+- The example below illustrates this pitfall using California housing data, where we aim to predict the median house value in different districts in California based on various features of the districts (e.g., median income, average number of rooms, etc.). The random split leads to an overly optimistic performance estimate compared to the spatial-based split, which is the correct way to split the data in this case.
+- Generally, if the data has some sort of structure (e.g., temporal, spatial, grouped, etc.), then we should split the data in a way that respects this structure.
+
+```{python}
+#| results: hold
+#| code-fold: true
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.datasets import fetch_california_housing
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error
+
+# 1. Load Real Data
+housing = fetch_california_housing()
+df = pd.DataFrame(housing.data, columns=housing.feature_names)
+df['MedHouseVal'] = housing.target
+# Use Latitude to create a simple North/South split
+df = df.sort_values('Latitude').reset_index(drop=True)
+
+X = df.drop('MedHouseVal', axis=1)
+y = df['MedHouseVal']
+
+# 2. THE WRONG WAY: Random Split
+# This mixes neighboring districts into both sets.
+X_train_r, X_test_r, y_train_r, y_test_r = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+model_r = RandomForestRegressor(n_estimators=50, random_state=42).fit(X_train_r, y_train_r)
+preds_r = model_r.predict(X_test_r)
+error_r = np.sqrt(mean_squared_error(y_test_r, preds_r))
+
+# 3. THE RIGHT WAY: Spatial Split (By Geography)
+# Train on the first 80% (Southern/Central) and test on the remaining 20% (North)
+split_idx = int(len(df) * 0.8)
+X_train_s, X_test_s = X.iloc[:split_idx], X.iloc[split_idx:]
+y_train_s, y_test_s = y.iloc[:split_idx], y.iloc[split_idx:]
+model_s = RandomForestRegressor(n_estimators=50, random_state=42).fit(X_train_s, y_train_s)
+preds_s = model_s.predict(X_test_s)
+error_s = np.sqrt(mean_squared_error(y_test_s, preds_s))
+
+# plot data
+plt.figure(figsize=(12, 5))
+plt.subplot(1, 3, 1)
+plt.scatter(X['Longitude'], X['Latitude'], c=y, s=0.1, cmap='coolwarm', vmin=y.min(), vmax=y.max())
+plt.title("Full Data: Observed Median House Value")
+plt.xlabel("Longitude")
+plt.xlim(-125, -114)
+plt.ylabel("Latitude")
+plt.ylim(32, 42)
+plt.colorbar(label='Observed Median House Value')
+
+plt.subplot(1, 3, 2)
+plt.scatter(X_test_r['Longitude'], X_test_r['Latitude'], c=preds_r, s=0.1, cmap='coolwarm', vmin=y.min(), vmax=y.max())
+plt.title(f"Random Split: RMSE = {error_r:.2f}\n(Model 'Knows' Every Neighborhood)")
+plt.xlabel("Longitude")
+plt.xlim(-125, -114)
+plt.ylabel("Latitude")
+plt.ylim(32, 42)
+plt.colorbar(label='Predicted Median House Value')
+
+plt.subplot(1, 3, 3)
+plt.scatter(X_test_s['Longitude'], X_test_s['Latitude'], c=preds_s, s=0.1, cmap='coolwarm', vmin=y.min(), vmax=y.max())
+plt.title(f"Spatial Split: RMSE = {error_s:.2f}\n(Model Must Generalize to New Region)")
+plt.xlabel("Longitude")
+plt.xlim(-125, -114)
+plt.ylabel("Latitude")
+plt.ylim(32, 42)
+plt.colorbar(label='Predicted Median House Value')
+plt.tight_layout()
+plt.show()
+```
+
+### Pitfall 2
+
+**Pitfall 2**: Using the same data to both select the best model and evaluate the performance of that model can lead to overfitting and overly optimistic performance estimates.
+
+- The example below illustrates this pitfall by simulating data where the outcome variable is completely independent of the covariates (so the baseline AUROC and classification accuracy are both 0.5). We then repeatedly split the data into training and test sets, fit multiple models on the training set, select the best model based on test set performance, and evaluate the performance of that best model on the same test set. This process leads to an overly optimistic performance estimate compared to a proper training-validation-test split, where we use a separate validation set to select the best model and a separate test set to evaluate the performance of that best model.
+
+```{r}
+#| results: hold
+#| code-fold: true
+
+set.seed(123)
+
+library(ranger)
+library(xgboost)
+library(e1071)
+library(yardstick)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+# simulate data such that y is completely independent from covariates X
+n <- 2000
+p <- 10
+y <- sample(0:1, size = n, replace = TRUE)
+X <- matrix(rnorm(n*p), nrow = n, ncol = p)
+
+# repeat training-test split and model fitting 100 times
+nreps <- 100 # reduce this number to hundreds if takes too long
+test_results1 <- list()
+for (iter in 1:nreps) {
+  # split the data into training and testing sets
+  train <- sample(1:n, n * 0.8)
+  test <- -train
+  X_train <- X[train, ]
+  y_train <- y[train]
+  X_test <- X[-train, ]
+  y_test <- y[-train]
+
+  # Fit a logistic regression model
+  train_df <- data.frame(y = y_train, X_train)
+  log_fit <- glm(y ~ ., data = train_df, family = "binomial")
+  log_preds <- predict(log_fit, newdata = data.frame(X_test), type = "response")
+
+  # Fit a random forest model
+  rf_fit <- ranger::ranger(
+    x = as.data.frame(X_train),
+    y = y_train,
+    classification = TRUE
+  )
+  rf_preds <- rowMeans(
+    predict(rf_fit, data = as.data.frame(X_test), predict.all = TRUE)$predictions
+  )
+
+  # Fit a gradient boosting model
+  gb_fit <- xgboost::xgboost(
+    data = X_train,
+    label = y_train,
+    nrounds = 100,
+    objective = "binary:logistic",
+    verbose = 0
+  )
+  gb_preds <- predict(gb_fit, newdata = X_test)
+
+  # Fit a support vector machine model
+  svm_fit <- e1071::svm(X_train, y_train, kernel = "radial")
+  svm_preds <- predict(svm_fit, X_test)
+
+  # Evaluate predictions
+  preds <- list(
+    logistic = log_preds,
+    random_forest = rf_preds,
+    gradient_boosting = gb_preds,
+    svm = svm_preds
+  )
+  class_preds <- lapply(
+    preds,
+    function(pred) {
+      as.factor(ifelse(pred > 0.5, 1, 0))
+    }
+  )
+
+  roc_aucs <- lapply(
+    preds,
+    function(pred) {
+      yardstick::roc_auc_vec(as.factor(y_test), pred, event_level = "second")
+    }
+  )
+
+  accs <- lapply(
+    class_preds,
+    function(pred) {
+      yardstick::accuracy_vec(as.factor(y_test), pred)
+    }
+  )
+
+  test_results1[[iter]] <- data.frame(
+    best_model = names(roc_aucs)[which.max(unlist(roc_aucs))],
+    AUROC = max(unlist(roc_aucs)),
+    Accuracy = max(unlist(accs))
+  )
+}
+
+# repeat training-validation-test split and model fitting 100 times
+test_results2 <- list()
+for (iter in 1:nreps) {
+  # split the data into training, validation, and testing sets
+  split_idx <- sample(c("train", "valid", "test"), size = n, replace = TRUE, prob = c(0.6, 0.2, 0.2))
+  X_train <- X[split_idx == "train", ]
+  y_train <- y[split_idx == "train"]
+  X_valid <- X[split_idx == "valid", ]
+  y_valid <- y[split_idx == "valid"]
+  X_test <- X[split_idx == "test", ]
+  y_test <- y[split_idx == "test"]
+
+  # Fit a logistic regression model
+  train_df <- data.frame(y = y_train, X_train)
+  log_fit <- glm(y ~ ., data = train_df, family = "binomial")
+  log_preds <- predict(log_fit, newdata = data.frame(X_valid), type = "response")
+
+  # Fit a random forest model
+  rf_fit <- ranger::ranger(
+    x = as.data.frame(X_train),
+    y = y_train,
+    classification = TRUE
+  )
+  rf_preds <- rowMeans(
+    predict(rf_fit, data = as.data.frame(X_valid), predict.all = TRUE)$predictions
+  )
+
+  # Fit a gradient boosting model
+  gb_fit <- xgboost::xgboost(
+    data = X_train,
+    label = y_train,
+    nrounds = 100,
+    objective = "binary:logistic",
+    verbose = 0
+  )
+  gb_preds <- predict(gb_fit, newdata = X_valid)
+
+  # Fit a support vector machine model
+  svm_fit <- e1071::svm(X_train, y_train, kernel = "radial")
+  svm_preds <- predict(svm_fit, X_valid)
+
+  # Evaluate predictions
+  preds <- data.frame(
+    logistic = log_preds,
+    random_forest = rf_preds,
+    gradient_boosting = gb_preds,
+    svm = svm_preds
+  )
+
+  roc_aucs <- lapply(
+    preds,
+    function(pred) {
+      yardstick::roc_auc_vec(as.factor(y_valid), pred, event_level = "second")
+    }
+  )
+
+  # get best model
+  best_model <- names(roc_aucs)[which.max(unlist(roc_aucs))]
+  if (best_model == "logistic") {
+    best_preds <- predict(log_fit, newdata = data.frame(X_test), type = "response")
+  } else if (best_model == "random_forest") {
+    best_preds <- rowMeans(
+      predict(rf_fit, data = as.data.frame(X_test), predict.all = TRUE)$predictions
+    )
+  } else if (best_model == "gradient_boosting") {
+    best_preds <- predict(gb_fit, newdata = X_test)
+  } else if (best_model == "svm") {
+    best_preds <- predict(svm_fit, X_test)
+  }
+
+  test_results2[[iter]] <- data.frame(
+    best_model = best_model,
+    AUROC = yardstick::roc_auc_vec(as.factor(y_test), best_preds, event_level = "second"),
+    Accuracy = yardstick::accuracy_vec(as.factor(y_test), as.factor(ifelse(best_preds > 0.5, 1, 0)))
+  )
+}
+
+# look at results
+test_results_df1 <- do.call(rbind, test_results1) |>
+  dplyr::mutate(mode = "Train-Test")
+test_results_df2 <- do.call(rbind, test_results2) |>
+  dplyr::mutate(mode = "Train-Valid-Test")
+plt_df <- rbind(test_results_df1, test_results_df2) |>
+  tidyr::pivot_longer(
+    cols = -c(best_model, mode),
+    names_to = "metric",
+    values_to = "value"
+  )
+
+ggplot2::ggplot(plt_df) +
+  ggplot2::aes(x = mode, y = value) +
+  ggplot2::geom_boxplot() +
+  ggplot2::geom_hline(yintercept = 0.5, linetype = "dashed", color = "orange") +
+  ggplot2::facet_wrap(~metric) +
+  ggplot2::labs(x = "Data Splitting Method", y = "Value") +
+  ggplot2::theme_minimal()
+
+plt_df |>
+  dplyr::group_by(mode, metric) |>
+  dplyr::summarize(
+    mean_value = mean(value),
+    sd_value = sd(value)
+  ) |>
+  tidyr::pivot_wider(
+    id_cols = metric,
+    names_from = mode,
+    values_from = mean_value
+  ) |>
+  dplyr::rename("Metric" = "metric")
+```
+
+:::

@@ -1,0 +1,1432 @@
+---
+title: "Introduction to Unsupervised Learning Methods"
+format: html
+---
+
+```{r setup, include=FALSE}
+# set seed
+set.seed(331)
+```
+
+## Overview
+
+The goal of this notebook is two-fold:
+
+1.  To provide a self-contained introduction/tutorial on popular dimension
+    reduction and clustering methods, and
+2.  To demonstrate how to implement these methods in R and Python
+
+Throughout this notebook, we will be using a `presidential_speech` dataset --- a
+dataset containing log-transformed word counts from important speeches by U.S.
+presidents. More specifically, the dataset contains the top 75 most variable
+log-transformed word counts for each US president aggregated over several
+speeches (Inaugural, State of the Union, etc.). This dataset was taken from the
+[`clustRviz`](https://github.com/DataSlingers/clustRviz) R package. For
+visualization purposes, we have also created a `pres_period` dataset that
+indicates the historical period of each U.S. president (i.e., founding fathers,
+pre-Civil War, pre-WWII, or modern).
+
+### Loading in the data {.unnumbered}
+
+::: panel-tabset
+#### R
+
+```{r data}
+DATA_DIR <- file.path("..", "data")
+pres_speech <- data.table::fread(
+  file.path(DATA_DIR, "pres_speech.csv")
+) |> 
+  tibble::column_to_rownames("V1") |> 
+  as.data.frame()
+pres_period <- read.csv(
+  file.path(DATA_DIR, "pres_period.csv")
+)$x
+
+head(pres_speech[, 1:6])
+```
+
+#### Python
+
+```{python}
+import pandas as pd
+from os.path import join as oj
+
+DATA_DIR = oj("..", "data")
+pres_speech = pd.read_csv(oj(DATA_DIR, "pres_speech.csv"), index_col=0)
+pres_period = pd.read_csv(oj(DATA_DIR, "pres_period.csv"))["x"]
+
+pres_speech.head()
+```
+:::
+
+### Plotting helper functions {.unnumbered}
+
+Before jumping in, let us also create some plotting helper functions that we
+will use throughout this notebook.
+
+::: panel-tabset
+#### R
+
+```{r}
+#| code-fold: true
+plot_scatter <- function(X, components = 1:2,
+                         color = NULL, labels = NULL,
+                         point_size = 3, ...) {
+  if (length(components) == 2) {
+    # plot 2d scatter plot
+    x_var <- names(X)[components[1]]
+    y_var <- names(X)[components[2]]
+    if (is.null(color)) {
+      if (!is.null(labels)) {
+        plt <- X |>
+          dplyr::mutate(.label = labels) |>
+          ggplot2::ggplot() +
+          ggplot2::aes(
+            x = .data[[x_var]], y = .data[[y_var]], label = .label
+          )
+      } else {
+        plt <- X |>
+          ggplot2::ggplot() +
+          ggplot2::aes(
+            x = .data[[x_var]], y = .data[[y_var]]
+          )
+      }
+    } else {
+      if (!is.null(labels)) {
+        plt <- X |>
+          dplyr::mutate(.label = labels) |>
+          dplyr::bind_cols(.color = color) |>
+          ggplot2::ggplot() +
+          ggplot2::aes(
+            x = .data[[x_var]], y = .data[[y_var]], 
+            color = .color, label = .label
+          )
+      } else {
+        plt <- X |>
+          dplyr::bind_cols(.color = color) |>
+          ggplot2::ggplot() +
+          ggplot2::aes(
+            x = .data[[x_var]], y = .data[[y_var]], color = .color
+          )
+      }
+    }
+    if (!is.null(labels)) {
+      plt <- plt +
+        ggplot2::geom_text(size = point_size)
+    } else {
+      plt <- plt +
+        ggplot2::geom_point(size = point_size)
+    }
+  } else {
+    # plot pair plot
+    plt <- ggwrappers::plot_pairs(
+      X,
+      columns = components,
+      color_lower = color,
+      point_size = point_size
+    )
+  }
+  plt <- plt +
+    ggplot2::labs(color = "Period") +
+    ggplot2::theme_minimal(...)
+  return(plt)
+}
+```
+
+#### Python
+
+```{python}
+#| code-fold: true
+import matplotlib.pyplot as plt
+import numpy as np
+
+def plot_scatter(X, components=[0, 1], color=None, labels=None, point_size=3, fontsize=8):
+  colormap = {'Founding Fathers': '#F8766D', 'Modern': '#7CAE00', 'Pre-Civil War': '#00BFC4', 'Pre-WW2': '#C77CFF'}
+  color = pres_period.map(colormap)
+  if len(components) == 2:
+    # plot 2d scatter plot
+    x_var = X.columns[components[0]]
+    y_var = X.columns[components[1]]
+    if color is None:
+      if labels is not None:
+        plt.scatter(X[x_var], X[y_var], s=0)
+        for i in range(X.shape[0]):
+          plt.text(X[x_var][i], X[y_var][i], labels[i], fontsize=fontsize)
+      else:
+        plt.scatter(X[x_var], X[y_var], s=point_size)
+    else:
+      if labels is not None:
+        plt.scatter(X[x_var], X[y_var], s=0)
+        for i in range(X.shape[0]):
+          plt.text(X[x_var][i], X[y_var][i], labels[i], c=color[i], fontsize=fontsize)
+      else:
+        plt.scatter(X[x_var], X[y_var], c=color, s=point_size)
+    plt.xlabel(x_var)
+    plt.ylabel(y_var)
+    plt.legend()
+  else:
+    # plot pair plot
+    pd.plotting.scatter_matrix(X, c=color, s=point_size)
+  plt.show()
+    
+```
+:::
+
+## Dimension Reduction
+
+### Principal Components Analysis (PCA)
+
+Principal Components Analysis (PCA) aims to find a lower-dimensional
+(linear) projection of the data that captures as much of the **variance** in the
+data as possible. The first principal component is the direction in which the
+data varies the most, the second principal component is the direction that
+captures the most variance after accounting for the first principal component,
+and so on.
+
+More formally, given data $\mathbf{X} \in \mathbb{R}^{n \times p}$, the $j^{th}$
+principal component, denoted $\mathbf{v}_j$, solves the following optimization
+problem:
+
+```{=tex}
+\begin{align*}
+\hat{\mathbf{v}}_j = \underset{\mathbf{v} \in \mathbb{R}^p}{\operatorname{argmax}} \;\; \operatorname{Var}(\underbrace{\mathbf{X}\mathbf{v}}_{\substack{\text{projection}\\ \text{of data } X\\ \text{ onto}\\\text{direction } \mathbf{v}}}) \quad \text{subject to} \quad \underbrace{\lVert \mathbf{v} \rVert_2^2 = 1, \; \mathbf{v}^T\hat{\mathbf{v}}_i = 0 \; \text{ for } i = 1, \ldots, j-1.}_{\text{constrained to be orthogonal to all previous PCs}}
+\end{align*}
+```
+In words, we want to find the principal component (or direction)
+$\hat{\mathbf{v}}_j$ such that when we project the data $\mathbf{X}$ onto this
+direction, the variance of the projected data is maximized. Moreover, we want to
+do this while ensuring that the direction $\mathbf{v}_j$ is scaled to have unit
+length (i.e., $\lVert \hat{\mathbf{v}}_j \rVert_2^2 = 1$) and is orthogonal to
+all previous principal components (i.e.,
+$\hat{\mathbf{v}}_j^T\hat{\mathbf{v}}_i = 0$ for $i = 1, \ldots, j-1$).
+
+#### Toy Examples {.unnumbered}
+
+To build some intuition, let's look at a few toy examples of PCA in action.
+
+::: panel-tabset
+##### Mixture of Gaussian
+
+::: {.panel-tabset .nav-pills}
+###### Original Data
+```{r}
+#| code-fold: true
+
+# Generate three clusters in 3D space
+n <- 100  # Number of points per cluster
+
+# Define means and covariance matrices for each cluster
+mu1 <- c(0, 0, 0)
+mu2 <- c(5, 5, 5)
+mu3 <- c(-5, 5, 0)
+
+sigma <- diag(3)  # Identity covariance (spherical clusters)
+
+# Sample points from multivariate normal distributions
+cluster1 <- MASS::mvrnorm(n, mu1, sigma)
+cluster2 <- MASS::mvrnorm(n, mu2, sigma)
+cluster3 <- MASS::mvrnorm(n, mu3, sigma)
+
+# Combine data
+data <- rbind(cluster1, cluster2, cluster3)
+labels <- factor(rep(1:3, each = n))  # Cluster labels
+
+# 3D Visualization
+pltly <- plotly::plot_ly(
+  data = as.data.frame(data) |> setNames(c("X", "Y", "Z")),
+  x = ~X,
+  y = ~Y,
+  z = ~Z,
+  color = labels,
+  type = "scatter3d",
+  marker = list(size = 3)
+) 
+pltly |> 
+  plotly::layout(
+    scene = list(
+      xaxis = list(visible = FALSE),
+      yaxis = list(visible = FALSE),
+      zaxis = list(visible = FALSE)
+    )
+  )
+```
+
+###### PCA Projection
+
+```{r}
+#| code-fold: true
+
+pltly |> 
+  plotly::layout(
+    scene = list(
+      xaxis = list(showgrid = FALSE),
+      yaxis = list(showgrid = FALSE),
+      zaxis = list(showgrid = FALSE)
+    )
+  )
+```
+
+```{r}
+#| code-fold: true
+
+pca_out <- prcomp(data)
+scores <- as.data.frame(pca_out$x)
+plot_scatter(scores, color = labels) + 
+  ggplot2::labs(color = "") +
+  ggplot2::scale_color_manual(
+    values = c("#66C2A4", "#F48D62", "#8E9FCA")
+  )
+```
+
+**Main Takeaway**: Gaussian data is the ideal scenario for PCA.
+
+:::
+
+##### Correlated Gaussian
+
+::: {.panel-tabset .nav-pills}
+###### Original Data
+```{r}
+#| code-fold: true
+
+# Number of samples
+n <- 500
+
+# Mean vector (location of the distribution)
+mu <- c(0, 0)
+
+# Covariance matrix (controls correlation)
+rho <- 0.8  # Desired correlation
+sigma <- matrix(c(1, rho, rho, 1), nrow = 2)  # Covariance matrix
+
+# Generate correlated data
+data <- MASS::mvrnorm(n, mu, sigma)
+
+# Convert to a data frame
+df <- data.frame(x = data[, 1], y = data[, 2], z = rnorm(n))
+
+pltly <- plotly::plot_ly(
+  data = df,
+  x = ~x,
+  y = ~y,
+  z = ~z,
+  marker = list(color = "black", size = 3),
+  type = "scatter3d"
+)
+pltly |> 
+  plotly::layout(
+    scene = list(
+      xaxis = list(visible = FALSE),
+      yaxis = list(visible = FALSE),
+      zaxis = list(visible = FALSE)
+    )
+  )
+```
+
+###### PCA Projection
+
+```{r}
+#| code-fold: true
+
+pltly |> 
+  plotly::layout(
+    scene = list(
+      xaxis = list(showgrid = FALSE),
+      yaxis = list(showgrid = FALSE),
+      zaxis = list(showgrid = FALSE)
+    )
+  )
+```
+
+```{r}
+#| code-fold: true
+
+pca_out <- prcomp(df)
+scores <- as.data.frame(pca_out$x)
+plot_scatter(scores)
+
+pca_out$rotation[, 1:2]
+```
+
+**Main Takeaway**: PCs typically group correlated variables together.
+
+:::
+
+##### Skewed Data
+
+::: {.panel-tabset .nav-pills}
+###### Original Data
+```{r}
+#| code-fold: true
+
+data <- data.table::fread(file.path(DATA_DIR, "tcga_sample.csv"))
+
+plt <- ggplot2::ggplot(data) +
+  ggplot2::aes(x = ESR1, y = GATA3) +
+  ggplot2::geom_point(size = 0.75) +
+  vthemes::theme_vmodern(size_preset = "medium")
+plt
+
+plt <- data |>
+  tidyr::pivot_longer(
+    cols = tidyselect::everything()
+  ) |>
+  ggwrappers::plot_histogram(
+    x_str = "value", bins = 20
+  ) +
+  ggplot2::facet_wrap(~ name, scales = "free") +
+  ggplot2::labs(x = "Gene Expression Value") +
+  vthemes::theme_vmodern(size_preset = "medium")
+plt
+```
+
+###### PCA Projection
+
+```{r}
+#| code-fold: true
+
+plt <- ggplot2::ggplot(data) +
+  ggplot2::aes(x = ESR1, y = GATA3) +
+  ggplot2::geom_point(size = 0.75) +
+  ggplot2::geom_abline(
+    intercept = -4.944, slope = 1.061
+  ) +
+  vthemes::theme_vmodern(size_preset = "medium")
+plt
+```
+
+```{r}
+#| code-fold: true
+
+pca_out <- prcomp(data)
+scores <- as.data.frame(pca_out$x)
+plot_scatter(scores)
+```
+
+**Main Takeaway**: PCA can still be useful for non-Gaussian data as long as variance is still a meaningful measure of information.
+
+:::
+
+##### Swiss Roll
+
+::: {.panel-tabset .nav-pills}
+###### Original Data
+```{r}
+#| code-fold: true
+
+# Number of points
+n <- 1000
+
+# Generate the Swiss Roll
+t <- (3 * pi / 2) * (1 + 2 * runif(n))  # Spiral angle
+x <- t * cos(t)  # X-coordinates (spiral)
+y <- runif(n, min = 0, max = 25)  # Adds height variation
+z <- t * sin(t)  # Z-coordinates (spiral)
+
+# Create a data frame
+data <- data.frame(x, y, z)
+swiss_roll <- data.frame(x, y, z, t)
+
+pltly <- plotly::plot_ly(
+  data = swiss_roll,
+  x = ~x,
+  y = ~y,
+  z = ~z,
+  color = ~t,
+  type = "scatter3d",
+  marker = list(size = 3)
+)
+pltly |> 
+  plotly::layout(
+    scene = list(
+      xaxis = list(visible = FALSE),
+      yaxis = list(visible = FALSE),
+      zaxis = list(visible = FALSE)
+    )
+  )
+```
+
+###### PCA Projection
+
+```{r}
+#| code-fold: true
+
+pltly |> 
+  plotly::layout(
+    scene = list(
+      xaxis = list(showgrid = FALSE),
+      yaxis = list(showgrid = FALSE),
+      zaxis = list(showgrid = FALSE)
+    )
+  )
+```
+
+```{r}
+#| code-fold: true
+
+pca_out <- prcomp(data)
+scores <- as.data.frame(pca_out$x)
+plot_scatter(scores, color = swiss_roll$t) + 
+  ggplot2::scale_color_viridis_c()
+```
+
+**Main Takeaway**: PCA fails when the data lies on a non-linear manifold.
+
+:::
+
+:::
+
+#### Connection between PCA and SVD {.unnumbered}
+
+Though the PCA optimization problem may look complicated, it turns out that the
+solution to this problem is actually given by the singular vector decomposition
+(SVD) of the data matrix $\mathbf{X}$. To make this connection, let's write out
+the SVD of $\mathbf{X}$ as:
+
+```{=tex}
+\begin{align*}
+\mathbf{X} = \mathbf{U} \mathbf{D} \mathbf{V}^T,
+\end{align*}
+```
+where
+$\mathbf{U} = [\mathbf{u}_1, \ldots, \mathbf{u}_n] \in \mathbb{R}^{n \times n}$
+and
+$\mathbf{V} = [\mathbf{v}_1, \ldots, \mathbf{v}_p] \in \mathbb{R}^{p \times p}$
+are orthogonal matrices whose columns are the left and right singular vectors of
+$\mathbf{X}$, respectively, and
+$\mathbf{D} = \text{diag}(d_1, \ldots, d_{\min\{n, p\}}) \in \mathbb{R}^{n \times p}$
+is a diagonal matrix whose diagonal entries are the singular values of
+$\mathbf{X}$.
+
+While we won't prove it here, it can be shown that the $j^{th}$ principal
+component of $\mathbf{X}$ is equal to the $j^{th}$ right singular vector of
+$\mathbf{X}$, i.e., $\hat{\mathbf{v}}_j = \mathbf{v}_j$. Since the $j^{th}$
+principal component score is the projection of $\mathbf{X}$ onto the $j^{th}$
+principal component $\hat{\mathbf{v}}_j$, it then follows that the $j^{th}$
+principal component score is equal to
+$\mathbf{X} \hat{\mathbf{v}}_j = \mathbf{X} \mathbf{v}_j = \mathbf{U} \mathbf{D} \mathbf{V}^T \mathbf{v}_j = d_j \mathbf{u}_j$.
+Moreover, the variance explained by the $j^{th}$ principal component is equal to
+$d_j^2$, and the proportion of variance explained by the $j^{th}$ principal
+component is equal to $\frac{d_j^2}{\sum_i d_i^2}$.
+
+In particular, the first principal component direction (i.e., the direction that
+explains the most variance in the data) is given by the first right singular
+vector of $\mathbf{X}$, and the first principal component score is given by the
+first left singular vector of $\mathbf{X}$ scaled by the first singular value.
+
+This connection between PCA and SVD is important because it allows us to quickly
+compute all of the principal components in one go (by computing the full SVD of
+$\mathbf{X}$). Moreover, this is a global and unique solution to the PCA problem
+(assuming that the data matrix $\mathbf{X}$ is not degenerate to begin with).
+
+#### Summary {.unnumbered}
+
+-   PCA is a linear dimension reduction method that aims to find a
+    lower-dimensional representation of the data that preserves as much of the
+    variance in the data as possible.
+-   PCA can be solved by computing the singular value decomposition (SVD) of the
+    data matrix $\mathbf{X}$ (for which there are very fast and well-studied
+    algorithms).
+
+#### Implementation {.unnumbered}
+
+::: panel-tabset
+##### R
+
+```{r}
+pca_out <- prcomp(pres_speech)
+scores <- as.data.frame(pca_out$x)
+plot_scatter(
+  scores, color = pres_period, labels = rownames(pres_speech)
+)
+```
+
+To further interpret the PCA results, we can look at two more things:
+
+1.  The **principal component loadings** (i.e., the weights of each feature
+    in each principal component):
+
+    ```{r}
+    loadings <- as.data.frame(pca_out$rotation)
+    head(loadings[, 1:4])
+    ```
+
+    which we might want to sort by their magnitude to see which features (in
+    this case, words) are most important in each principal component, e.g., for
+    PC1:
+
+    ```{r}
+    loadings |> 
+      tibble::rownames_to_column("word") |> 
+      dplyr::mutate(
+        rank = rank(-abs(PC1)),
+        PC1 = sprintf("%s (%.2f)", word, PC1)
+      ) |> 
+      dplyr::arrange(rank) |> 
+      dplyr::select(rank, PC1) |> 
+      head()
+    ```
+
+```{=html}
+<!-- -->
+```
+2.  The **proportion of variance explained** by each principal component:
+
+    ```{r}
+    var_explained <- pca_out$sdev^2 / sum(pca_out$sdev^2)
+    ```
+
+    which we can visualize in a scree plot:
+
+    ```{r}
+    data.frame(
+      PC = seq_along(var_explained),
+      cum_var_explained = cumsum(var_explained)
+    ) |> 
+      ggplot2::ggplot() +
+      ggplot2::aes(x = PC, y = cum_var_explained) +
+      ggplot2::geom_point() +
+      ggplot2::geom_line() +
+      ggplot2::labs(
+        x = "Number of Components",
+        y = "Cumulative Proportion of Variance Explained"
+      ) +
+      ggplot2::theme_minimal()
+    ```
+
+##### Python
+
+```{python}
+from sklearn.decomposition import PCA
+
+pca = PCA()
+pca_scores = pd.DataFrame(pca.fit_transform(pres_speech))
+pca_scores.columns = [f"PC{i+1}" for i in range(pca_scores.shape[1])]
+plot_scatter(
+  pca_scores, color=pres_period, labels=pres_speech.index
+)
+```
+
+To further interpret the PCA results, we can look at two more things:
+
+1.  The **principal component loadings** (i.e., the weights of each feature
+    in each principal component):
+
+    ```{python}
+    loadings = pd.DataFrame(pca.components_.T)
+    loadings
+    ```
+
+    which we might want to sort by their magnitude to see which features (in
+    this case, words) are most important in each principal component, e.g., for
+    PC1:
+
+    ```{python}
+    loadings["word"] = pres_speech.columns
+    loadings["rank"] = loadings[0].abs().rank(ascending=False)
+    loadings = loadings.rename(columns={0: "PC1"})
+    loadings[["rank", "word", "PC1"]].sort_values("rank").head()
+    ```
+
+```{=html}
+<!-- -->
+```
+2.  The **proportion of variance explained** by each principal component:
+
+    ```{python}
+    var_explained = pca.explained_variance_ratio_
+    ```
+
+    which we can visualize in a scree plot:
+
+    ```{python}
+    plt.plot(np.cumsum(var_explained), marker="o")
+    plt.xlabel("Number of Components")
+    plt.ylabel("Cumulative Proportion of Variance Explained")
+    plt.show()
+    ```
+
+:::
+
+### Multidimensional Scaling (MDS)
+
+Multidimensional scaling (MDS) aims to find a lower-dimensional representation
+of the data that preserves the **pairwise distances** between data points as
+much as possible.
+
+Given data $\mathbf{X} \in \mathbb{R}^{n \times p}$ and a pre-specified choice
+of the number of dimensions $r$, MDS solves the following optimization problem:
+
+```{=tex}
+\begin{align*}
+\hat{\mathbf{Z}} = \underset{\mathbf{Z} \in \mathbb{R}^{n \times r}}{\operatorname{argmin}} \;\; \sum_{i \neq j} \big( \underbrace{\lVert \mathbf{x}_i - \mathbf{x}_j \rVert_2}_{\substack{\text{distance between }\\\text{points } i \text{ and } j \\\text{ in \textbf{original space}}}} - \underbrace{\lVert \mathbf{z}_i - \mathbf{z}_j \rVert_2}_{\substack{\text{distance between }\\\text{points } i \text{ and } j \\\text{ in \textbf{low-dim space}}}} \big)^2,
+\end{align*}
+```
+In words, MDS tries to find a new set of points
+$\hat{\mathbf{Z}} \in \mathbb{R}^{n \times r}$ in the lower $r$-dimensional
+space such that the pairwise Euclidean distances between the points in the
+lower-dimensional space are similar to the original distances.
+
+Note that MDS can be applied to scenarios where we don't have direct access to
+the data $\mathbf{X}$, but we have access to the pairwise distances between the
+data points $D_{ij} = \lVert \mathbf{x}_i - \mathbf{x}_j \rVert_2$. In this
+case, we can use the pairwise distance matrix
+$\mathbf{D} \in \mathbb{R}^{n \times n}$, where
+$D_{ij} = \lVert \mathbf{x}_i - \mathbf{x}_j \rVert_2$, as the input to MDS.
+There has also been numerous extensions of MDS, which allow for the use of other
+distance metrics in place of the Euclidean distance shown here.
+
+#### Summary {.unnumbered}
+
+-   MDS is a dimension reduction method that aims to find a lower-dimensional
+    representation of the data that preserves the pairwise distances between
+    data points.
+-   MDS is particular useful when we only have access to the pairwise distances
+    between data points (and not the actual data points themselves).
+
+#### Implementation {.unnumbered}
+
+::: panel-tabset
+##### R
+
+```{r}
+mds_out <- cmdscale(dist(pres_speech), k = 2)
+scores <- as.data.frame(mds_out) |> 
+  setNames(paste0("MDS", 1:ncol(mds_out)))
+plot_scatter(
+  scores, color = pres_period, labels = rownames(pres_speech)
+)
+```
+
+##### Python
+
+```{python}
+from sklearn.manifold import MDS
+
+mds = MDS(n_components=2)
+scores = pd.DataFrame(mds.fit_transform(pres_speech))
+scores.columns = [f"MDS{i+1}" for i in range(scores.shape[1])]
+plot_scatter(
+  scores, color=pres_period, labels=pres_speech.index
+)
+```
+:::
+
+### Independent Components Analysis (ICA)
+
+Whereas PCA decomposes the data into a set of orthogonal components, Independent
+Components Analysis (ICA) aims to decompose the data into **statistically
+independent** components.
+
+Given a (centered) data matrix $\mathbf{X} \in \mathbb{R}^{n \times p}$ and a
+pre-specified number of components $r$, ICA assumes that there exists a set of
+$r$ statistically independent ("source") components
+$\mathbf{S} \in \mathbb{R}^{n \times r}$ such that the data $\mathbf{X}$ can be
+represented as a linear combination of the statistically independent components
+$\mathbf{S}$. That is, ICA assumes that \begin{align*}
+\mathbf{X} = \mathbf{S} \mathbf{A},
+\end{align*} where $\mathbf{A} \in \mathbb{R}^{r \times p}$ is a mixing matrix
+(i.e., a set of linear weights). The goal of ICA then is to "un-mix" the data by
+estimating an un-mixing matrix $\mathbf{W} \in \mathbb{R}^{r \times r}$ such
+that \begin{align*}
+\mathbf{X} \mathbf{W} = \mathbf{S}.
+\end{align*} (If $\mathbf{A}$ were a square matrix, one could think of this
+$\mathbf{W}$ as something like an inverse matrix of $\mathbf{A}$.)
+
+Under these modeling assumptions, the Central Limit Theorem tells us that the
+signal in the data $\mathbf{X}$ will tend to be more Gaussian than the
+independent source components $\mathbf{S}$ (this is because $\mathbf{X}$ is a
+linear combination of these source components). Thus, ICA searches for an
+un-mixing matrix $\mathbf{W}$ that maximizes the non-Gaussianity of the source
+components $\mathbf{S}$.
+
+Note that ICA is known to be highly sensitive to noise. Thus, it is often
+recommended to apply ICA after first applying PCA.
+
+#### Summary {.unnumbered}
+
+-   ICA aims to decompose the data into a linear combination of statistically
+    independent source components.
+-   ICA is most effective when we believe that the underlying source signals are
+    highly non-Gaussian.
+    -   Consequently, ICA has been widely used and successful in signal
+        processing applications (e.g., the "cocktail" problem).
+
+#### Implementation {.unnumbered}
+
+::: panel-tabset
+##### R
+
+```{r}
+library(fastICA)
+
+ica_out <- fastICA::fastICA(pres_speech, n.comp = 2)
+scores <- as.data.frame(ica_out$S) |> 
+  setNames(paste0("IC", 1:ncol(ica_out$S)))
+plot_scatter(
+  scores, color = pres_period, labels = rownames(pres_speech)
+)
+```
+To further interpret the ICA results, we can also take a look at the mixing matrix $\mathbf{A} \in \mathbb{R}^{r \times p}$, which tells us how much each feature contributes to each independent component:
+
+```{r}
+mixing_matrix <- as.data.frame(ica_out$A)
+```
+
+which we might want to sort by their magnitude to see which features (in this case, words) are most important in each component, e.g., for the first IC:
+
+```{r}
+as.data.frame(t(mixing_matrix)) |> 
+  dplyr::mutate(
+    word = colnames(pres_speech),
+    rank = rank(-abs(V1)),
+    IC1 = sprintf("%s (%.2f)", word, V1)
+  ) |> 
+  dplyr::arrange(rank) |>
+  dplyr::select(rank, IC1) |> 
+  head()
+```
+
+##### Python
+
+```{python}
+from sklearn.decomposition import FastICA
+
+ica = FastICA(n_components=2)
+scores = pd.DataFrame(ica.fit_transform(pres_speech))
+scores.columns = [f"IC{i+1}" for i in range(scores.shape[1])]
+plot_scatter(
+  scores, color=pres_period, labels=pres_speech.index
+)
+```
+
+To further interpret the ICA results, we can also take a look at the mixing matrix $\mathbf{A} \in \mathbb{R}^{r \times p}$, which tells us how much each feature contributes to each independent component:
+
+```{python}
+mixing_matrix = pd.DataFrame(ica.mixing_)
+```
+
+which we might want to sort by their magnitude to see which features (in this case, words) are most important in each component, e.g., for the first IC:
+
+```{python}
+mixing_matrix["word"] = pres_speech.columns
+mixing_matrix["rank"] = mixing_matrix[0].abs().rank(ascending=False)
+mixing_matrix = mixing_matrix.rename(columns={0: "IC1"})
+mixing_matrix[["rank", "word", "IC1"]].sort_values("rank").head()
+```
+
+:::
+
+### Non-negative Matrix Factorization (NMF)
+
+Non-negative Matrix Factorization (NMF) is a dimension reduction method, which
+requires **non-negative data** as input, and aims to decompose the data into a
+linear combination of two low-rank matrices --- one capturing patterns in the
+sample/observation space (i.e., the "scores") and the other capturing patterns
+in the feature space (i.e., the "loadings").
+
+Formally, given a non-negative data matrix
+$\mathbf{X} \in \mathbf{R}^{n \times p}$ (i.e., each entry in $\mathbf{X}$ is
+non-negative) and given a pre-specified number of components $r$, NMF solves the
+optimization problem: \begin{align*}
+\hat{\mathbf{W}}, \hat{\mathbf{H}} = \underset{\mathbf{W} \geq 0, \mathbf{H} \geq 0}{\operatorname{argmin}} \;\; \lVert \mathbf{X} - \mathbf{W}\mathbf{H} \rVert_F^2,
+\end{align*} where $\hat{\mathbf{W}} \in \mathbb{R}^{n \times r}$ is the
+"scores" matrix and $\hat{\mathbf{H}} \in \mathbb{R}^{r \times p}$ is the
+"loadings" matrix.
+
+In other words, NMF tries to find two non-negative, low-rank matrices
+$\mathbf{W}$ and $\mathbf{H}$ such that their product approximates the original
+data matrix $\mathbf{X}$ as closely as possible, that is, \begin{align*}
+\mathbf{X} \approx \mathbf{W}\mathbf{H}.
+\end{align*} Moreover, we can interpret the columns of $\mathbf{W}$ as the
+"scores" of the data points in the lower-dimensional space (analogous to the PC
+scores) and the columns of $\mathbf{H}$ as the "loadings" of the features in the
+lower-dimensional space (analogous to the PC loadings).
+
+NMF is typically referred to as a "low-rank" approximation method. A low-rank
+approximation method is one that tries to simplify a complex data matrix (e.g.,
+$\mathbf{X}$) by approximating it with smaller/simpler/low-rank matrices (e.g.,
+$\mathbf{W}$ and $\mathbf{H}$).
+
+#### Summary {.unnumbered}
+
+-   NMF aims to find a low-rank approximation of the data matrix $\mathbf{X}$ by
+    factorizing it into two simpler matrices $\mathbf{W}$ (the sample scores)
+    and $\mathbf{H}$ (the feature loadings).
+-   NMF requires that the input data have all non-negative entries. Though this
+    can be a limitation, this also makes NMF particularly useful for data that
+    is inherently non-negative (e.g., word counts, image data, etc.) as it
+    exploits this special structure.
+
+#### Implementation {.unnumbered}
+
+::: panel-tabset
+##### R
+
+```{r}
+# note if you need to install NMF in renv, you may need to first install the Biobase R package via `renv::install("bioc::Biobase")`
+library(NMF)
+
+nmf_out <- NMF::nmf(pres_speech, rank = 2)
+scores <- as.data.frame(nmf_out@fit@W) |> 
+  setNames(paste0("NMF", 1:ncol(nmf_out@fit@W)))
+plot_scatter(
+  scores, color = pres_period, labels = rownames(pres_speech)
+)
+```
+
+To further interpret the NMF results, we can also take a look at the feature loadings matrix $\mathbf{H} \in \mathbb{R}^{r \times p}$, which tells us how much each feature contributes to each NMF component:
+
+```{r}
+h <- nmf_out@fit@H
+```
+
+which we might want to sort by their magnitude to see which features (in this case, words) are most important in each component, e.g., for the first NMF component:
+
+```{r}
+as.data.frame(t(h)) |> 
+  tibble::rownames_to_column("word") |>
+  dplyr::mutate(
+    rank = rank(-abs(V1)),
+    NMF1 = sprintf("%s (%.2f)", word, V1)
+  ) |> 
+  dplyr::arrange(rank) |>
+  dplyr::select(rank, NMF1) |> 
+  head()
+```
+
+##### Python
+
+```{python}
+from sklearn.decomposition import NMF
+
+nmf = NMF(n_components=2)
+scores = pd.DataFrame(nmf.fit_transform(pres_speech))
+scores.columns = [f"NMF{i+1}" for i in range(scores.shape[1])]
+plot_scatter(
+  scores, color=pres_period, labels=pres_speech.index
+)
+```
+
+To further interpret the NMF results, we can also take a look at the feature loadings matrix $\mathbf{H} \in \mathbb{R}^{r \times p}$, which tells us how much each feature contributes to each NMF component:
+
+```{python}
+h = pd.DataFrame(nmf.components_.T)
+```
+
+which we might want to sort by their magnitude to see which features (in this case, words) are most important in each component, e.g., for the first NMF component:
+
+```{python}
+h["word"] = pres_speech.columns
+h["rank"] = h[0].abs().rank(ascending=False)
+h = h.rename(columns={0: "NMF1"})
+h[["rank", "word", "NMF1"]].sort_values("rank").head()
+```
+
+:::
+
+### t-Distributed Stochastic Neighbor Embedding (tSNE)
+
+t-Distributed Stochastic Neighbor Embedding (tSNE) is a nonlinear dimension
+reduction method which aims to preserve the **local neighborhood structure** of
+the data.
+
+At a high-level, the idea behind tSNE is to model the pairwise similarities (or
+neighborhood structure) between data points in the high-dimensional space and
+the low-dimensional space. In particular, tSNE defines a probability
+distribution over pairs of data points in the high-dimensional space based on
+their similarities (e.g., based on the Euclidean distance between the data
+points). It then defines a similar probability distribution over pairs of data
+points in the low-dimensional space. The goal of tSNE is then to find the
+low-dimensional representation of the data that minimizes the difference between
+these two probability distributions.
+
+The details of how tSNE actually does this is perhaps too involved to present in
+this notebook. However, if you would like to learn more, here is a great
+[tutorial](https://www.dailydoseofds.com/formulating-and-implementing-the-t-sne-algorithm-from-scratch/).
+
+What's important to know for practical purposes:
+
+-   tSNE requires a pre-specified number of dimensions for the lower-dimensional
+    space. Typically, tSNE is run with 2 or 3 dimensions.
+-   Often, PCA is performed before running tSNE to reduce the dimensionality of
+    the data and to speed up the tSNE algorithm. This also helps tSNE to avoid
+    the "curse of dimensionality", which can be a major problem when computing
+    distances between points in high dimensions (as is done in the tSNE
+    algorithm).
+-   tSNE often does a great job at preserving the local structure of the data,
+    but sometimes at the cost of losing the global structure. In other words,
+    when interpreting a tSNE output, it is best practice to de-emphasize the
+    relative distance or position of points/clusters that are far apart from
+    each other.
+-   As part of tSNE's probability model, there is an important hyperparameter,
+    referred to as "perplexity", which acts like a bandwidth for how flexible
+    the tSNE embedding can be. This hyperparameter can substantially affect the
+    tSNE output.
+
+I would highly encourage you to check out this fantastic [blog
+post](https://distill.pub/2016/misread-tsne/) on tSNE which provides great
+intuition for how the hyperparameters of tSNE (e.g., perplexity) can affect the
+resulting embeddings. It also gives great insight into the tradeoff between
+preserving local and global structure in tSNE and how to best interpret the
+results.
+
+#### Summary {.unnumbered}
+
+-   tSNE is a nonlinear dimension reduction method, which aims to preserve the
+    probability distribution of neighboring points between the original space
+    and the lower-dimensional space.
+-   tSNE is often great at preserving the local structure of the data, but at
+    the cost of losing the global structure. This tradeoff is partially
+    controlled by the perplexity hyperparameter in tSNE.
+
+#### Implementation {.unnumbered}
+
+::: panel-tabset
+##### R
+
+```{r}
+library(Rtsne)
+
+tsne_out <- Rtsne::Rtsne(pres_speech, dims = 2, perplexity = 5)
+scores <- as.data.frame(tsne_out$Y) |> 
+  setNames(paste0("tSNE", 1:ncol(tsne_out$Y)))
+plot_scatter(
+  scores, color = pres_period, labels = rownames(pres_speech)
+)
+```
+
+##### Python
+
+```{python}
+from sklearn.manifold import TSNE
+
+tsne = TSNE(n_components=2, perplexity=5)
+scores = pd.DataFrame(tsne.fit_transform(pres_speech))
+scores.columns = [f"tSNE{i+1}" for i in range(scores.shape[1])]
+plot_scatter(
+  scores, color=pres_period, labels=pres_speech.index
+)
+```
+:::
+
+### Uniform Manifold Approximation and Projection (UMAP)
+
+Like tSNE, Uniform Manifold Approximation and Projection (UMAP) is a nonlinear
+dimension reduction method that aims to preserve the **local neighborhood
+structure** of the data. However, unlike tSNE, UMAP is generally thought to be
+better at preserving the **global structure** of the data (but not always).
+
+At a high-level, UMAP constructs a high-dimensional graph representation of the
+data, where each data point is connected to its nearest neighbors in the
+original space. UMAP then constructs a low-dimensional graph representation of
+the data and tries to preserve the graph structure between the high-dimensional
+and low-dimensional representations. The key idea behind UMAP is to find a
+low-dimensional representation of the data that minimizes the cross-entropy
+between the high-dimensional and low-dimensional graph representations.
+
+Again, the details of how UMAP actually does this is perhaps too involved to
+present in this notebook. (In fact, to rigorously present UMAP, we would need to
+introduce manifold learning and topological data analysis.) However, if you
+would like to learn more, here is a great and accessible
+[tutorial](https://umap-learn.readthedocs.io/en/latest/how_umap_works.html) on
+UMAP.
+
+What's important to know for practical purposes:
+
+-   UMAP requires a pre-specified number of dimensions for the lower-dimensional
+    space. Typically, UMAP is run with 2 or 3 dimensions.
+-   Often, PCA is performed before running UMAP to reduce the dimensionality of
+    the data and to speed up the UMAP algorithm. This also helps UMAP to avoid
+    the "curse of dimensionality", which can be a major problem when computing
+    distances between points in high dimensions (as is done in the UMAP
+    algorithm).
+-   UMAP has a few hyperparameters that can substantially affect the UMAP
+    output, including the "number of neighbors" to consider when constructing
+    the high-dimensional graph and the "minimum distance" hyperparameter which
+    controls the minimum distance between points in the low-dimensional space.
+    Like tSNE, the output of UMAP can change substantially based on these
+    hyperparameters.
+
+#### Summary {.unnumbered}
+
+-   UMAP is a nonlinear dimension reduction method based on manifold learning
+    and ideas from topological data analysis (like building neighborhood graph
+    representations).
+-   UMAP is generally thought to be better at preserving the global structure of
+    the data compared to tSNE.
+-   However, UMAP still depends on a few hyperparameters (like the number of
+    neighbors and the minimum distance) that can substantially affect the
+    output.
+
+#### Implementation {.unnumbered}
+
+::: panel-tabset
+##### R
+
+```{r}
+library(umap)
+
+umap_out <- umap::umap(
+  pres_speech, n_components = 2, n_neighbors = 15, min_dist = 0.1
+)
+scores <- as.data.frame(umap_out$layout) |> 
+  setNames(paste0("UMAP", 1:ncol(umap_out$layout)))
+plot_scatter(
+  scores, color = pres_period, labels = rownames(pres_speech)
+)
+```
+
+##### Python
+
+```{python}
+#| eval: false # somehow can't get this python chunk to run using reticulate when rendering quarto
+import umap
+
+umap_out = umap.UMAP(n_components=2, n_neighbors=15, min_dist=0.1)
+scores = pd.DataFrame(umap_out.fit_transform(pres_speech))
+scores.columns = [f"UMAP{i+1}" for i in range(scores.shape[1])]
+plot_scatter(
+  scores, color=pres_period, labels=pres_speech.index
+)
+```
+:::
+
+### Autoencoders
+
+Autoencoders are a type of neural network architecture that can be used for
+dimension reduction. Generally, an autoencoder consists of two main components: 
+an encoder and a decoder. The encoder $f$ maps the input data $x$ to a lower-dimensional 
+latent representation $z = f(x)$, while the decoder $g$ maps the latent representation back to the 
+original data space $x' = g(z) = g(f(x))$.
+
+![](../../../_site/images/autoencoder.png){fig-align="center" width=80%}
+
+To learn the parameters (or weights) in the autoencoder, the neural network is trained to minimize the reconstruction error between the original data and the reconstructed data: 
+\begin{align*}
+\lVert x - x' \rVert^2_2 = \lVert x - g(f(x)) \rVert^2_2.
+\end{align*}
+In other words, the autoencoder is trained to learn a compressed representation of the data that can be used to reconstruct the original data as accurately as possible. 
+
+What's important to know for practical purposes:
+
+- While autoencoders can be very powerful tools, they typically require a large amount of data to train effectively and can be computationally intensive.
+- Autoencoders can be designed with various architectures (e.g., deep, convolutional) depending on the nature of the data and the specific application. This flexibility is both a blessing and a curse, as it allows for tailored solutions but also requires careful design and tuning since different architectures and hyperparameters can lead to vastly different results.
+- In modern practice, variational autoencoders (VAEs) are often used instead of ordinary autoencoders. VAEs introduce a probabilistic framework to the autoencoder architecture, allowing analysts to also *generate* new data points using the learned latent space.
+
+#### Summary {.unnumbered}
+
+- Autoencoders are a type of neural network architecture used for dimension reduction, consisting of an encoder and a decoder.
+- They learn a compressed representation of the data by minimizing the reconstruction error between the original and reconstructed data.
+- Variational autoencoders (VAEs) extend this idea by introducing a probabilistic framework, enabling the generation of new data points.
+
+### Other Dimension Reduction methods
+
+Other popular dimension reduction methods that are not covered in this notebook
+but are of interest:
+
+-   Isomap
+-   Locally Linear Embedding (LLE)
+-   And many more...
+
+## Clustering
+
+### K-means
+
+K-means clustering is a simple and popular clustering algorithm that aims to find $K$ clusters (i.e., groups) in the data which result in the smallest within-cluster variance. 
+
+More precisely, given data $\mathbf{x}_1, \ldots, \mathbf{x}_n \in \mathbb{R}^{p}$ and a pre-specified number of clusters $K$, K-means aims to find the cluster assignments $\hat{z}_1, \ldots, \hat{z}_n \in \{1, \ldots, K\}$ that minimize the following objective function:
+\begin{align*}
+\hat{z}_1, \ldots, \hat{z}_n = \underset{z_1, \ldots, z_n}{\operatorname{argmin}} \;\; \sum_{k=1}^K \sum_{i: z_i = k} \lVert \mathbf{x}_i - \mathbf{c}_k \rVert_2^2 \qquad \text{subject to} \;\; \mathbf{c}_k = \frac{1}{\lvert \{i: z_i = k\} \rvert} \sum_{i: z_i = k} \mathbf{x}_i.
+\end{align*}
+
+Intuitively:
+
+- $\hat{z}_i$ is the cluster assignment of the $i^{th}$ data point $\mathbf{x}_i$ (e.g., $\hat{z}_i = 1$ means that the $i^{th}$ data point belongs to the first cluster);
+- $\mathbf{c}_k$ is the center point of the $k^{th}$ cluster, or equivalently, the average of all samples assigned to cluster $k$.
+
+Thus, an equivalent interpretation of this mathematical formulation is that K-means is trying to find the cluster assignments that minimize the within-cluster variance, defined as the sum of the squared Euclidean distances between each data point and its assigned cluster center.
+
+#### K-means optimization algorithm {.unnumbered}
+
+**So how do we solve this optimization problem?** K-means is typically solved using an iterative algorithm that alternates between updating the cluster assignments and updating the cluster centers. That is, the K-means algorithm proceeds as follows:
+
+0. **Initialize the cluster centers**: Randomly initialize the cluster centers $\mathbf{c}_1, \ldots, \mathbf{c}_K$. Typically, the cluster centers are initialized by randomly selecting $K$ data points from the dataset.
+1. **Update the cluster assignments**: Assign each data point to the cluster with the nearest cluster center, i.e., $\hat{z}_i = \underset{k}{\operatorname{argmin}} \lVert \mathbf{x}_i - \mathbf{c}_k \rVert_2^2$.
+2. **Update the cluster centers**: Update the cluster centers to be the average of all data points assigned to that cluster, i.e., $\mathbf{c}_k = \frac{1}{\lvert \{i: \hat{z}_i = k\} \rvert} \sum_{i: \hat{z}_i = k} \mathbf{x}_i$.
+3. **Repeat steps 2 and 3 until convergence**: Repeat steps 2 and 3 until the cluster assignments no longer change or until some other stopping criterion is met.
+
+An illustration of how this algorithm works is shown in the figure below (astericks denote the cluster centers):
+
+```{r}
+#| code-fold: true
+#| fig-width: 14
+#| fig-height: 3.5
+#| column: page
+
+# code to understand K-means algorithm
+kmeans_movie <- function(X, K, max_iter = 2) {
+  n <- nrow(X)
+  X <- as.data.frame(X)
+  x_var <- colnames(X)[1]
+  y_var <- colnames(X)[2]
+  plt_ls <- list()
+  plt_idx <- 1
+  
+  # step 1: initialize cluster centers
+  init_centers_idx <- sample(1:n, K)
+  cluster_centers <- X[init_centers_idx, ]
+  plt_ls[[plt_idx]] <- ggplot2::ggplot(X) +
+    ggplot2::aes(
+      x = .data[[x_var]], 
+      y = .data[[y_var]]
+    ) +
+    ggplot2::geom_point() +
+    ggplot2::geom_point(
+      data = cluster_centers |> 
+        dplyr::mutate(.cluster = factor(1:K)),
+      ggplot2::aes(color = .cluster),
+      shape = 8, size = 3
+    ) +
+    ggplot2::labs(
+      color = "Cluster ID",
+      title = "Initialize cluster centers"
+    ) +
+    ggplot2::theme_classic() +
+    ggplot2::guides(color = "none")
+  plt_idx <- plt_idx + 1
+  
+  for (iter in 1:max_iter) {
+    # step 2: update cluster assignments
+    cluster_ids <- purrr::map(
+      1:K,
+      function(k) {
+        cluster_centers_mat <- matrix(
+          as.matrix(cluster_centers[k, ]), 
+          nrow = n, ncol = ncol(cluster_centers), byrow = TRUE
+        )
+        rowSums((as.matrix(X) - cluster_centers_mat)^2)
+      }
+    ) |> 
+      purrr::reduce(cbind) |> 
+      apply(1, which.min)
+    plt_ls[[plt_idx]] <- X |> 
+      dplyr::mutate(
+        .cluster = as.factor(cluster_ids)
+      ) |>
+      ggplot2::ggplot() +
+      ggplot2::aes(
+        x = .data[[x_var]], 
+        y = .data[[y_var]],
+        color = .cluster
+      ) +
+      ggplot2::geom_point() +
+      ggplot2::geom_point(
+        data = cluster_centers |> 
+          dplyr::mutate(.cluster = factor(1:K)),
+        shape = 8, size = 3
+      ) +
+      ggplot2::labs(
+        color = "Cluster ID",
+        title = "Updated cluster assignments"
+      ) +
+      ggplot2::theme_classic()
+    plt_idx <- plt_idx + 1
+    
+    # update cluster centers
+    cluster_centers <- X |> 
+      dplyr::mutate(
+        .cluster = as.factor(cluster_ids)
+      ) |> 
+      dplyr::group_by(.cluster) |> 
+      dplyr::summarize(
+        across(
+          .cols = everything(),
+          .fns = mean
+        )
+      )
+    plt_ls[[plt_idx]] <- X |> 
+      dplyr::mutate(
+        .cluster = as.factor(cluster_ids)
+      ) |> 
+      ggplot2::ggplot() +
+      ggplot2::aes(
+        x = .data[[x_var]], 
+        y = .data[[y_var]],
+        color = .cluster
+      ) +
+      ggplot2::geom_point() +
+      ggplot2::geom_point(
+        data = cluster_centers,
+        shape = 8, size = 3
+      ) +
+      ggplot2::labs(
+        color = "Cluster ID",
+        title = "Updated cluster centers"
+      ) +
+      ggplot2::theme_classic()
+    plt_idx <- plt_idx + 1
+    
+    cluster_centers <- cluster_centers |> 
+      dplyr::select(-.cluster) |> 
+      dplyr::ungroup()
+  }
+  
+  return(plt_ls)
+}
+
+# run kmeans using first 2 PCs of the presidential speech dataset for ease of visualizations
+X <- pca_out$x[, 1:2]
+kmeans_movie_plts <- kmeans_movie(X, K = 3, max_iter = 2)
+plt <- patchwork::wrap_plots(kmeans_movie_plts, nrow = 1, guides = "collect") + 
+  patchwork::plot_layout(axis_titles = "collect")
+plt
+```
+
+When using K-means in practice, there are three important things to keep in mind:
+
+- Given the complexity of this optimization problem, the above K-means algorithm is only guaranteed to converge to a [local minimum](https://mohitmishra786687.medium.com/the-curse-of-local-minima-how-to-escape-and-find-the-global-minimum-fdabceb2cd6a) of the objective function, not necessarily the global minimum. As a consequence, the K-means solution can sometimes depend on the initial cluster centers. It is common (and the default implementation in many software packages) to run the K-means algorithm multiple times, each with a different initialization, and then to select the cluster assignments that leads to the smallest within-cluster variance.
+- In K-means, data points are assigned to the cluster whose center is closest to them. Thus, for K-means to work well, the clusters should be relatively spherical and have similar sizes. If the clusters are not spherical, K-means can produce suboptimal results.
+- K-means relies on the Euclidean distance to measure the similarity between data points. However, in high-dimensional settings, distances are often not "meaningful" since everything is far apart in such large spaces (this is known as the [curse of dimensionality](https://en.wikipedia.org/wiki/Curse_of_dimensionality)). Thus, it is often recommended to apply PCA or other dimension reduction methods before running K-means.
+
+#### Summary {.unnumbered}
+
+- K-means is a clustering method, which aims to find $K$ clusters in the data that minimize the within-cluster variance.
+- K-means works well when the clusters are relatively spherical and have similar sizes. This is due to the fact that data points are assigned to the cluster whose center is closest to them in the K-means algorithm.
+
+#### Implementation {.unnumbered}
+
+::: panel-tabset
+
+##### R
+
+```{r}
+kmeans_out <- stats::kmeans(pres_speech, centers = 4)
+cluster_assignments <- kmeans_out$cluster
+cluster_centers <- kmeans_out$centers
+scores <- as.data.frame(pca_out$x[, 1:2]) |> 
+  dplyr::mutate(cluster = as.factor(cluster_assignments))
+plot_scatter(
+  scores, color = as.factor(cluster_assignments), labels = rownames(pres_speech)
+) +
+  ggplot2::labs(color = "Clusters")
+```
+
+##### Python
+
+```{python}
+from sklearn.cluster import KMeans
+
+kmeans = KMeans(n_clusters=4)
+cluster_assignments = kmeans.fit_predict(pres_speech)
+cluster_centers = kmeans.cluster_centers_
+plot_scatter(
+  pca_scores, color=cluster_assignments, labels=pres_speech.index
+)
+```
+
+:::
+
+### Hierarchical Clustering
+
+Hierarchical clustering is a clustering method that aims to build a nested hierarchy of clusters. Unlike K-means, hierarchical clustering does not require a pre-specified number of clusters $K$. Instead, hierarchical clustering produces a tree-like structure of clusters, known as a **dendrogram**, from which one can obtain the cluster assignments for any desired number of clusters. 
+
+The key idea behind (agglomerative) hierarchical clustering is to iteratively merge clusters that are "closest" together. Thus, one needs a way to define two types of distances: (1) the distance between two individual data points, and (2) the distance between two clusters. For the former, traditional distance metrics (e.g., Euclidean ($\ell_2$), $\ell_1$, or Mahalanobis distances) can be used. For the latter, several different *linkages* (i.e., distance metrics for clusters) have been introduced, such as:
+
+- **Single linkage**: The distance between two clusters is defined as the minimum distance between any two points in the two clusters.
+- **Complete linkage**: The distance between two clusters is defined as the maximum distance between any two points in the two clusters.
+- **Average linkage**: The distance between two clusters is defined as the average distance between all pairs of points in the two clusters.
+- **Ward's linkage**: The distance between two clusters is defined as the increase in the within-cluster variance that results from merging the two clusters.
+
+Each of these linkages has their own advantages and disadvantages, which can have a substantial impact on the resulting clusters and dendrogram. We briefly summarize the differences between these linkages below:
+
+- **Single linkage**: Single linkage is often very sensitive to outliers and tends to produce extended, trailing clusters that are formed by fusing observations one at a time (i.e., "chaining"). It frequently results in unbalanced clusters, but it can handle very diverse shapes.
+- **Complete linkage**: Complete linkage is more robust to outliers than single linkage and tends to produce clusters with similar sizes. While it works well with spherical distributions, it can struggle with more elongated and diverse cluster shapes.
+- **Average linkage**: Average linkage is a compromise between single and complete linkage. 
+- **Ward's linkage**: Ward's linkage is arguably the most popular linkage method. It is particularly useful when the clusters are relatively spherical and are normally distributed. However, it can struggle with very large datasets due to the higher computational complexity.
+
+Moreover, as with K-means, since hierarchical clustering relies heavily on distances between points, it is often recommended to apply PCA or other dimension reduction methods before running hierarchical clustering to avoid the "curse of dimensionality".
+
+#### Summary {.unnumbered}
+
+- Hierarchical clustering is a clustering method that produces a nested hierarchy of clusters, known as a dendrogram, which does not require choosing the number of clusters until after hierarchical clustering has been performed.
+- There are many different linkage methods that can be used in hierarchical clustering, which can have a large impact on the clustering results.
+
+#### Implementation {.unnumbered}
+
+::: panel-tabset
+
+##### R
+
+```{r}
+hc_out <- stats::hclust(dist(pres_speech), method = "ward.D")
+cluster_assignments <- cutree(hc_out, k = 4)
+scores <- as.data.frame(pca_out$x[, 1:2]) |> 
+  dplyr::mutate(cluster = as.factor(cluster_assignments))
+plot_scatter(
+  scores, color = as.factor(cluster_assignments), labels = rownames(pres_speech)
+) +
+  ggplot2::labs(color = "Clusters")
+```
+
+We can visualize the dendrogram using the [`ggdendro`](https://andrie.github.io/ggdendro/) package:
+
+```{r}
+library(ggdendro)
+
+ggdendro::ggdendrogram(hc_out)
+```
+
+##### Python
+
+```{python}
+from sklearn.cluster import AgglomerativeClustering
+
+hc = AgglomerativeClustering(n_clusters=4, linkage="ward")
+cluster_assignments = hc.fit_predict(pres_speech)
+plot_scatter(
+  pca_scores, color=cluster_assignments, labels=pres_speech.index
+)
+```
+
+We can visualize the dendrogram using `scipy`'s dendrogram function as follows:
+
+```{python}
+from scipy.cluster.hierarchy import dendrogram
+
+def plot_dendrogram(model, **kwargs):
+  # Create linkage matrix and then plot the dendrogram
+
+  # create the counts of samples under each node
+  counts = np.zeros(model.children_.shape[0])
+  n_samples = len(model.labels_)
+  for i, merge in enumerate(model.children_):
+    current_count = 0
+    for child_idx in merge:
+      if child_idx < n_samples:
+        current_count += 1  # leaf node
+      else:
+        current_count += counts[child_idx - n_samples]
+    counts[i] = current_count
+
+  linkage_matrix = np.column_stack([model.children_, model.distances_,
+                                    counts]).astype(float)
+
+  # Plot the corresponding dendrogram
+  dendrogram(linkage_matrix, **kwargs)
+
+hc = AgglomerativeClustering(distance_threshold=0, n_clusters=None)
+hc = hc.fit(pres_speech)
+plot_dendrogram(hc)
+plt.show()
+```
+
+:::
+
+### Other Clustering Methods
+
+- Density-Based Spatial Clustering of Applications with Noise (DBSCAN)
+- Gaussian Mixture Models (GMM)
+- Spectral clustering
+- Convex clustering
+- And many more...
