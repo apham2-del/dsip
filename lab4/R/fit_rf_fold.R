@@ -1,4 +1,4 @@
-fit_rf_fold <- function(k, x, fold_ids, ...) {
+fit_rf_fold <- function(k, x, fold_ids, num.trees = 50, mtry = 3, probability = TRUE) {
   train_data <- x[fold_ids != k, ]
   val_data <- x[fold_ids == k, ]
   
@@ -9,10 +9,10 @@ fit_rf_fold <- function(k, x, fold_ids, ...) {
     ...
   )
   
-  preds <- predict(fit, data = val_data)$predictions[, "Cloud"]
+  probs <- predict(fit, data = val_data)$predictions[, "Cloud"]
   preds_class <- ifelse(preds > 0.5, "Cloud", "Not Cloud")
   preds_class <- factor(preds_class, levels = c("Not Cloud", "Cloud"))
   
-  return(yardstick::accuracy_vec(val_data$cloud, preds_class))
+  (yardstick::accuracy_vec(val_data$cloud, preds_class))
 }
 
