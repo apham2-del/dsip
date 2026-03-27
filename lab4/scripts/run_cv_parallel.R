@@ -5,7 +5,7 @@ library(furrr)
 library(ranger)
 library(yardstick)
 
-source("scripts/fit_rf_fold.R")
+source("R/fit_rf_fold.R")
 
 DATA_PATH <- "data"
 K <- 5
