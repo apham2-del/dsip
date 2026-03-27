@@ -5,8 +5,10 @@ fit_rf_fold <- function(k, x, fold_ids, num.trees = 50, mtry = 3, probability = 
   fit <- ranger::ranger(
     cloud ~ NDAI + SD + CORR + DF + CF + BF + AF + AN,
     data = train_data,
-    num.threads = 1,
-    ...
+    num.trees = num.trees, 
+    mtry = mtry,
+    probability = probability,
+    num.threads = 1
   )
   
   probs <- predict(fit, data = val_data)$predictions[, "Cloud"]
