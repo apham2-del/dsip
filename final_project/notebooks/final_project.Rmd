@@ -1,0 +1,263 @@
+---
+title: "checkpoint 2"
+output: html_document
+date: "2026-04-07"
+---
+
+## Data Cleaning 
+
+The OWID CO2 and Greenhouse Gas emissions dataset from Our World in Data is the main dataset used throughout this project. Beginning with this dataset, a group of variables related to emissions, economic output, and energy use was filtered to focus on the main variables that contributes and highlights the objective. Further analysis was conducted and the variables years was restricted to 1990 and later for relevance. The iso_code was used to filter out regional and economic group observations and only keep the individual countries for accuracy and maintaining data. 
+
+Because some key variables had substantial missingness, a broader cleaned dataset for descriptive exploration and a stricter complete-case subset for analyses requiring all core variables was used. 
+
+```{r setup}
+library(tidyverse)
+odf <- read_csv("owid-co2-data.csv")
+
+odf_clean <- odf %>%
+  select(
+    country,
+    year,
+    iso_code,
+    co2,
+    co2_per_capita,
+    gdp,
+    population,
+    primary_energy_consumption
+  ) %>%
+  filter(year >= 1990) %>%
+  filter(!is.na(iso_code))
+
+colSums(is.na(odf_clean))
+
+nrow(odf_clean)
+
+odf_clean %>%
+  summarize(
+    complete_rows = sum(complete.cases(co2, gdp, population, primary_energy_consumption)),
+    total_rows = n()
+  )
+
+odf_clean %>%
+  summarize(
+    complete_rows = sum(complete.cases(co2, gdp, population, primary_energy_consumption)),
+    total_rows = n()
+  )
+```
+
+
+A basic graph is shown in the early EDA process. Global CO2 emissions show a strong upward trend from 1990 and onward, reflecting increasing industrial activity and energy demand. Temporary declines are visible around 2008-2009 and 2020, most likely corresponding to global economic disruptions such as the financial crisis of 2008 and 2020 COVID-19 outbreak. Overall, the long-term trend suggests sustained growth in emissions over time.
+
+```{r}
+library(ggplot2)
+odf_clean %>%
+  group_by(year) %>%
+  summarize(global_co2 = sum(co2, na.rm = TRUE)) %>%
+  ggplot(aes(x = year, y = global_co2)) +
+  geom_line() +
+  labs(
+    title = "Global CO2 Emissions Over Time",
+    x = "Year",
+    y = "Total CO2"
+  ) +
+  theme_minimal()
+
+
+odf_model <- odf_clean %>%
+  drop_na(co2, gdp, population, primary_energy_consumption)
+
+nrow(odf_clean)
+nrow(odf_model)
+```
+
+
+
+
+```{r}
+odf_model <- odf_clean %>%
+  drop_na(co2, gdp, population, primary_energy_consumption)
+
+odf_clean %>%
+  summarize(
+    total_rows = n(),
+    total_countries = n_distinct(country),
+    min_year = min(year),
+    max_year = max(year)
+  )
+
+odf_model %>%
+  summarize(
+    total_rows = n(),
+    total_countries = n_distinct(country),
+    min_year = min(year),
+    max_year = max(year)
+  )
+
+
+```
+
+
+
+## EDA 
+To better understand the structure of the dataset and inform modeling choices, global trends, country-level variation, and relationship between economic activity and emissions were examined.
+
+## Global Trends over Time
+The aggregate CO2 emissions shows a clear upward trajectory from 1990 onward with rapid growth beginning in the early 2000s. While there is a slight decline around 2020, the overall patterns remains increasing. At a global level, emissions have continued to scale with industrial and economic expansion over time.
+
+## GDP and CO2 Relationship
+The scatterplot of GDP vs CO2 emissions shows a strong positive association, though the relationship is not linear. At lower GDP levels, emissions increase gradually while higher GDP values are associated with a wider spread of emissions outcomes. This dispersion across the scatterplot suggests heterogeneity across countried with some high GDP countries maintaining lower emissions, possible due to differences in energy efficiency or policy effects.
+
+## Country Level Trends
+Focusing on the top 10 emitting countries, China shows the most dramatic increase, with noticeable peak after 2000 and continues to become a dominant contributor. India also shows steady growth at a lower magntitude. The United States and Germany appear more stable or slightly declining over time, possibly due to changes in energy use or regulation. 
+
+## Total Emissions by Country
+When emissions are aggregated across all years, China and the United States account for the largest shares by a substantial margin. The countries following the two contribute significantly less in comparison. These patterns emphasize the inclusion of GDP as a predictor in models and might suggest country-level effects could be important to capture for later usage.
+
+```{r}
+library(tidyverse)
+
+theme_proj <- function() {
+  theme_minimal() +
+    theme(
+      plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+      plot.subtitle = element_text(size = 11, hjust = 0.5),
+      axis.title = element_text(face = "bold"),
+      axis.text = element_text(size = 10),
+      legend.position = "bottom",
+      legend.title = element_text(face = "bold"),
+      panel.grid.minor = element_blank()
+    )
+}
+
+odf_clean %>%
+  group_by(year) %>%
+  summarize(global_co2 = sum(co2, na.rm = TRUE)) %>%
+  ggplot(aes(x = year, y = global_co2)) +
+  geom_line(color = "salmon2", linewidth = 1.2) +
+  labs(
+    title = "Global CO2 Emissions Over Time",
+    subtitle = "Annual total emissions in the cleaned dataset",
+    x = "Year",
+    y = "Total CO2 Emissions (tonnes)"
+  ) +
+  theme_proj()
+
+odf_model %>%
+  ggplot(aes(x = gdp, y = co2)) +
+  geom_point(color = "orchid1", alpha = 0.5, size = 2) +
+  labs(
+    title = "GDP vs CO2 Emissions",
+    subtitle = "Complete-case observations from 1990 onward",
+    x = "GDP",
+    y = "CO2 Emissions (tonnes)"
+  ) +
+  theme_proj()
+
+top_countries <- odf_clean %>%
+  group_by(country) %>%
+  summarize(total_co2 = sum(co2, na.rm = TRUE)) %>%
+  arrange(desc(total_co2)) %>%
+  slice(1:10) %>%
+  pull(country)
+
+odf_clean %>%
+  filter(country %in% top_countries) %>%
+  ggplot(aes(x = year, y = co2, color = country)) +
+  geom_line(linewidth = 1) +
+  labs(
+    title = "CO2 Emissions for Top 10 Emitting Countries",
+    subtitle = "Country-level trends since 1990",
+    x = "Year",
+    y = "CO2 Emissions (tonnes)",
+    color = "Country"
+  ) +
+  theme_proj()
+
+odf_clean %>%
+  group_by(country) %>%
+  summarize(total_co2 = sum(co2, na.rm = TRUE)) %>%
+  arrange(desc(total_co2)) %>%
+  slice(1:10) %>%
+  ggplot(aes(x = reorder(country, total_co2), y = total_co2)) +
+  geom_col(fill = "skyblue2") +
+  coord_flip() +
+  labs(
+    title = "Top 10 Countries by Total CO2 Emissions",
+    subtitle = "Summed across available years after filtering",
+    x = "Country",
+    y = "Total CO2 Emissions (tonnes)"
+  ) +
+  theme_proj()
+
+```
+
+
+
+## Extra ggplot for continents
+```{r}
+region_df <- odf %>%
+  select(country, year, co2) %>%
+  filter(country %in% c(
+    "Africa (GCP)",
+    "Asia (GCP)",
+    "Europe (GCP)",
+    "North America (GCP)",
+    "South America (GCP)"
+  ))
+
+ggplot(region_df, aes(x = year, y = co2, color = country)) +
+  geom_line(linewidth = 1) +
+  labs(
+    title = "Regional CO2 Emissions Over Time",
+    subtitle = "Aggregate regional trends from the OWID dataset",
+    x = "Year",
+    y = "CO2 Emissions (tonnes)",
+    color = "Region"
+  ) +
+  theme_minimal()
+
+```
+
+
+## Modeling Pass 
+A preliminary linear regression model was used predicting co2 from gdp, population, and primary_energy_consumption. The model achieved a test RMSE of 78.37 and outperformed a baseline model which had an rmse of 663.47. I checked the distribution from the summary statistics and it is very right-skewed.
+
+Not sure how much I should fully trust the coefficient interpretation since the predictors all seem related to each other.
+
+LASSO was also tested as a comparison but did not perform well as the linear regression possible due to the model only using a small number of strogn predictors. 
+```{r}
+set.seed(123)
+
+n <- nrow(odf_model)
+train_id <- sample(seq_len(n), size = 0.8 * n)
+
+train_data <- odf_model[train_id, ]
+test_data  <- odf_model[-train_id, ]
+
+lm_fit <- lm(
+  co2 ~ gdp + population + primary_energy_consumption,
+  data = train_data
+)
+
+summary(lm_fit)
+
+lm_preds <- predict(lm_fit, newdata = test_data)
+
+lm_rmse <- sqrt(mean((test_data$co2 - lm_preds)^2))
+lm_rmse
+```
+
+
+
+
+
+```{r}
+baseline_pred <- mean(train_data$co2)
+baseline_rmse <- sqrt(mean((test_data$co2 - baseline_pred)^2))
+baseline_rmse
+```
+
+
+
+## Unsupervised Learning Model
+I plan to a PCA model.
