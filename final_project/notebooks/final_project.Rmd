@@ -12,7 +12,7 @@ Because some key variables had substantial missingness, a broader cleaned datase
 
 ```{r setup}
 library(tidyverse)
-odf <- read_csv("owid-co2-data.csv")
+odf <- read_csv("../data/owid-co2-data.csv")
 
 odf_clean <- odf %>%
   select(
@@ -219,45 +219,287 @@ ggplot(region_df, aes(x = year, y = co2, color = country)) +
 ```
 
 
-## Modeling Pass 
-A preliminary linear regression model was used predicting co2 from gdp, population, and primary_energy_consumption. The model achieved a test RMSE of 78.37 and outperformed a baseline model which had an rmse of 663.47. I checked the distribution from the summary statistics and it is very right-skewed.
+## Unsupervised Learning Model
 
-Not sure how much I should fully trust the coefficient interpretation since the predictors all seem related to each other.
-
-LASSO was also tested as a comparison but did not perform well as the linear regression possible due to the model only using a small number of strogn predictors. 
 ```{r}
-set.seed(123)
+pca_data <- odf_model %>%
+  select(co2, co2_per_capita, gdp, population, primary_energy_consumption) %>%
+  mutate(
+    co2 = log1p(co2),
+    co2_per_capita = log1p(co2_per_capita),
+    gdp = log1p(gdp),
+    population = log1p(population),
+    primary_energy_consumption = log1p(primary_energy_consumption)
+  )
 
-n <- nrow(odf_model)
-train_id <- sample(seq_len(n), size = 0.8 * n)
+pca_fit <- prcomp(pca_data, center = TRUE, scale. = TRUE)
+summary(pca_fit)
+pca_fit$rotation
+```
 
-train_data <- odf_model[train_id, ]
-test_data  <- odf_model[-train_id, ]
+## PCA 
 
-lm_fit <- lm(
-  co2 ~ gdp + population + primary_energy_consumption,
-  data = train_data
+The PCA scores did not show separate groups of countries, suggetsed country-level observations vary along continuous dimensions rather than clusters. The loadings plot show that the CO2, GDP, and primary energy consumption contribute similarly to the first PCA while the second PCA mainly distinguishes population from CO2 emissions per capita. These patterns support the interpetation of PC1 as an overall scale dimension and PC2 as a contrast between population size and emissions intensity. 
+
+
+```{r}
+pca_country <- odf_model %>%
+  group_by(country) %>%
+  summarize(
+    co2 = mean(co2, na.rm = TRUE),
+    co2_per_capita = mean(co2_per_capita, na.rm = TRUE),
+    gdp = mean(gdp, na.rm = TRUE),
+    population = mean(population, na.rm = TRUE),
+    primary_energy_consumption = mean(primary_energy_consumption, na.rm = TRUE)
+  ) %>%
+  mutate(
+    co2 = log1p(co2),
+    co2_per_capita = log1p(co2_per_capita),
+    gdp = log1p(gdp),
+    population = log1p(population),
+    primary_energy_consumption = log1p(primary_energy_consumption)
+  )
+
+pca_fit_country <- prcomp(
+  pca_country %>% select(-country),
+  center = TRUE,
+  scale. = TRUE
 )
 
-summary(lm_fit)
+summary(pca_fit_country)
+pca_fit_country$rotation
 
-lm_preds <- predict(lm_fit, newdata = test_data)
+pca_scores_country <- as_tibble(pca_fit_country$x) %>%
+  bind_cols(pca_country %>% select(country))
 
-lm_rmse <- sqrt(mean((test_data$co2 - lm_preds)^2))
-lm_rmse
+ggplot(pca_scores_country, aes(x = PC1, y = PC2)) +
+  geom_point(alpha = 0.6, size = 1.8, color = "orchid1") +
+  theme_minimal() +
+  labs(
+    title = "PCA Scores Plot by Country",
+    x = "PC1",
+    y = "PC2"
+  )
+
+loadings_df <- as_tibble(pca_fit$rotation, rownames = "variable")
+
+ggplot(loadings_df, aes(x = PC1, y = PC2, label = variable)) +
+  geom_point(size = 3, color = "salmon") +
+  geom_text(size = 4, hjust = 0.5, nudge_y = 0.04) +
+  theme_minimal() +
+  coord_cartesian(xlim = c(0.28, 0.55), ylim = c(-0.85, 0.7), clip = "off") +
+  labs(
+    title = "PCA Variable Loadings",
+    x = "PC1",
+    y = "PC2"
+  ) +
+  theme(
+    plot.margin = margin(10, 30, 10, 20)
+  )
 ```
 
 
+
+## Predictive Modeling  
+
+To study how the factors contribute to national carbon dioxide emissions, I fit a regression model using GDP, population, and primary consumption as the predictors. Earlier, I did a simple random train and test split with LASSO and a simple linear regression model but after reviewing the structure of the data, this approach was scrapped. 
+
+Randomly assigning observations to training and test sets ignore the time-series structure of the data and can lead to overly optimistic estimates of predictive performance. To address this, time-based resampling was used instead with the caret package. This will ensure that the models trained on earlier years and evaluated on the later years is more appropriate.
+
+I also changed to a log-linear model. EDA showed the CO2 emissions, GDP, population, and primary energy consumption were all rightly-skewed which made it harder to interpret so I had to transform the variables.
+
+To evaluate whether there are redundant predictors, the correlation structure from the log-transformed variables were also examines. Log GDP and log primary energy consumption are still highly correlated. Due to this substantial multicollinearity, I tried to fit a reduced log-linear model that did not include GDP and kept log population and log primary energy consumption as predictors. 
+
+Model performance was evaluated using RMSE, MAE, and r-squared. I also compared both regression models against a baseline model.
+
+
+```{r}
+
+library(caret)
+odf_model <- odf_clean %>%
+  drop_na(co2, gdp, population, primary_energy_consumption) %>%
+  arrange(year, country)
+
+years_vec <- sort(unique(odf_model$year))
+
+time_slices <- caret::createTimeSlices(
+  1:length(years_vec),
+  initialWindow = 20,
+  horizon = 5,
+  fixedWindow = FALSE
+)
+```
+
+## train/test split
+
+```{r}
+last_train_idx <- time_slices$train[[length(time_slices$train)]]
+last_test_idx  <- time_slices$test[[length(time_slices$test)]]
+
+train_years <- years_vec[last_train_idx]
+test_years  <- years_vec[last_test_idx]
+
+train_data <- odf_model %>%
+  filter(year %in% train_years)
+
+test_data <- odf_model %>%
+  filter(year %in% test_years)
+
+train_data %>%
+  summarize(
+    n_rows = n(),
+    min_year = min(year),
+    max_year = max(year)
+  )
+
+test_data %>%
+  summarize(
+    n_rows = n(),
+    min_year = min(year),
+    max_year = max(year)
+  )
+
+log_train <- train_data %>%
+  mutate(
+    log_co2 = log1p(co2),
+    log_gdp = log1p(gdp),
+    log_population = log1p(population),
+    log_energy = log1p(primary_energy_consumption)
+  )
+
+log_test <- test_data %>%
+  mutate(
+    log_co2 = log1p(co2),
+    log_gdp = log1p(gdp),
+    log_population = log1p(population),
+    log_energy = log1p(primary_energy_consumption)
+  )
+```
+
+## Baseline Model on the Log Scale
 
 
 
 ```{r}
-baseline_pred <- mean(train_data$co2)
-baseline_rmse <- sqrt(mean((test_data$co2 - baseline_pred)^2))
-baseline_rmse
+baseline_log_pred <- mean(log_train$log_co2)
+
+baseline_log_rmse <- sqrt(mean((log_test$log_co2 - baseline_log_pred)^2))
+baseline_log_mae  <- mean(abs(log_test$log_co2 - baseline_log_pred))
+baseline_log_r2   <- 1 - sum((log_test$log_co2 - baseline_log_pred)^2) /
+  sum((log_test$log_co2 - mean(log_test$log_co2))^2)
+
+tibble(
+  model = "Baseline Mean (log scale)",
+  RMSE = baseline_log_rmse,
+  MAE = baseline_log_mae,
+  R2 = baseline_log_r2
+)
+
+
+lm_log_fit <- lm(
+  log_co2 ~ log_gdp + log_population + log_energy,
+  data = log_train
+)
+
+summary(lm_log_fit)
+
+log_preds <- predict(lm_log_fit, newdata = log_test)
+
+log_rmse <- sqrt(mean((log_test$log_co2 - log_preds)^2))
+log_mae  <- mean(abs(log_test$log_co2 - log_preds))
+log_r2   <- 1 - sum((log_test$log_co2 - log_preds)^2) /
+  sum((log_test$log_co2 - mean(log_test$log_co2))^2)
+
+tibble(
+  model = "Full Log-Linear Regression",
+  RMSE = log_rmse,
+  MAE = log_mae,
+  R2 = log_r2
+)
+
+log_train %>%
+  select(log_gdp, log_population, log_energy) %>%
+  cor(use = "complete.obs")
+```
+
+
+## Reduced log-linear regression
+
+The reduced log-linear model performed pretty well like the full log-linear model with just a small increase in RMSE and a decrease in r-squared. I think I will continue to have a reduced model as my final model, too much multicolinearity is going on. 
+
+
+
+The coefficient estimates in the reduced model were easier to interpret. Both predictors were positive and highly significant. The coefficient for log primary energy consumption was 0.857, meaning energy use is a dominant predictor in the model. Log population on the other hand, has a smaller positive coefficient of 0.058. Although these coefficients should not be interpreted as isolated causal effects, the reduced model avoids severe overlap among predictors.  
+
+Correlation across the predictors are still present but the reduced-model provided a more interpretable result while trying to preserve strong predictive performance.
+
+
+
+```{r}
+lm_log_fit_reduced <- lm(
+  log_co2 ~ log_population + log_energy,
+  data = log_train
+)
+
+summary(lm_log_fit_reduced)
+
+reduced_preds <- predict(lm_log_fit_reduced, newdata = log_test)
+
+reduced_rmse <- sqrt(mean((log_test$log_co2 - reduced_preds)^2))
+reduced_mae  <- mean(abs(log_test$log_co2 - reduced_preds))
+reduced_r2   <- 1 - sum((log_test$log_co2 - reduced_preds)^2) /
+  sum((log_test$log_co2 - mean(log_test$log_co2))^2)
+
+tibble(
+  model = "Reduced Log-Linear Regression",
+  RMSE = reduced_rmse,
+  MAE = reduced_mae,
+  R2 = reduced_r2
+)
+
+results_tbl <- tibble(
+  model = c(
+    "Baseline Mean (log scale)",
+    "Full Log-Linear Regression",
+    "Reduced Log-Linear Regression"
+  ),
+  RMSE = c(
+    baseline_log_rmse,
+    log_rmse,
+    reduced_rmse
+  ),
+  MAE = c(
+    baseline_log_mae,
+    log_mae,
+    reduced_mae
+  ),
+  R2 = c(
+    baseline_log_r2,
+    log_r2,
+    reduced_r2
+  )
+)
+
+results_tbl
 ```
 
 
 
-## Unsupervised Learning Model
-I plan to a PCA model.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
