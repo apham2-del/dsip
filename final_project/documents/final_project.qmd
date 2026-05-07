@@ -1,0 +1,698 @@
+---
+title: "final_project"
+format: html
+editor: visual
+---
+
+# Abstract
+
+Carbon dioxide emissions are a major indicator for understanding the relationship among economic development, energy use, and climate change. This study is motivated by the broader challenge of climate change. This paper analyzes country-year observations from the Our World in Data $CO_2$ and Greenhouse Gas Emissions dataset to study how emissions vary across countries and overtime from 1990 onward. The analysis combines exploratory data analysis, principal components analysis, and predictive modeling to examine how $CO_2$ emissions relate to GDP, population, and primary energy consumption. The report also emphasizes the importance of time-aware model evaluation. Overall, this study provides a structured, data-driven analysis of global emission trends and their relationship to broader economic and energy indicators.
+
+Keywords: Climate change, $CO_2$ emissions, Machine Learning, Statistics
+
+# Introduction
+
+Human greenhouse gas emissions are a primary driver of contemporary climate change. As economies expand, populations grow, and energy demand increases, so do emissions. However, the strength and structure of these relationships vary across countries and over time. Understanding these patterns is important for both societal and scientific advancement, since emissions are closely connected to climate policy, sustainable development, and long-term environmental risk.
+
+This problem is challenging because emissions are influenced by many interconnected factors, inducing industrialization, energy infrastructure, economic scale, and different policies around the world. The data are also collected over time which means the time series structure must be accounted for during the analysis. Ignoring this time-series structure can produce misleading results when evaluating predictive models. 
+
+This research will analyze country-level data from the Our World in Data $CO_2$ and Greenhouse Gas Emissions dataset, focusing on observations from 1990 onward. The goals of this analysis are to explore global and country-level trends in $CO_2$ emissions, examine how emissions relate to GDP, population, and primary energy consumption, and evaluate predictive models for $CO_2$ emissions from these covariates. Due to the nature of this dataset, the time series structure will be considered in the data splitting and model evaluation process.
+
+# Data Collection
+
+The data used in this analysis come from the Our World in Data $CO_2$ and Greenhouse Gas Emissions dataset, a standardized dataset compiled from multiple international sources, including energy, economic, and demographic sources into a standardized longitudinal format. Each observation corresponds to one country in one year, making it possible to study how emissions and related variables change over time.
+
+The analysis focused on a subset of variables most relevant to the research question, including country, year, country code, total $CO_2$ emissions, $CO_2$ emissions per capita, GDP, population, and primary energy consumption. Total $CO_2$ emissions, measured in million tonnes, served as the primary response variable because they directly represent the emissions outcome of interest. $CO_2$ emissions per capita provide a population-adjusted measure of emissions intensity. GDP represents economic output, population represents demographic scale, and primary energy consumption reflects total energy demand. Together, these variables capture several of the broad structural factors commonly linked to national emission patterns.
+
+One major strength of the dataset is that it includes repeated yearly observations, allowing emissions to be studied over time rather than in a single cross section. At the same time, the dataset has important limitations to be aware of. The original data include both individual countries and broader regional or economic aggregates. Filtering was necessary to align the analysis with a country-level research question. Some variables also contained missing values, which reduced the number of observations available for predictive modeling.
+
+# Data Preprocessing
+
+Several preprocessing steps were performed before analysis. Only variables relevant to emissions, economic output, population, and energy use were retained. Next, the data were restricted to years 1990 and later in order to focus on more recent emissions patterns. Observations without valid country codes were removed so that the dataset would reflect identifiable individual countries rather than broader regional or economic groupings.
+
+Missing values were handled differently depending on the purpose of the analysis. For exploratory analysis, a broader cleaned dataset was retained so that overall patterns could be studied using as many observations as possible. For predictive modeling, rows with missing values in the main response or predictor variables were removed so that all models would be fit and compared on the same complete set of observations. No imputation was used.
+
+Exploratory plots also informed later modeling decisions. Specifically, global $CO_2$ emissions over time showed a clear temporal structure, which motivated the use of time-aware model evaluation rather than random train-test splitting. In addition, total $CO_2$ emissions, GDP, population, and primary energy consumption were all strongly right-skewed which later motivated modeling on a log-transformed scale.
+
+```{r}
+#| label: setup
+#| include: false
+#| message: false
+#| warning: false
+
+library(tidyverse)
+library(caret)
+library(ggplot2)
+library(ranger)
+```
+
+```{r}
+
+odf <- read_csv("../data/owid-co2-data.csv")
+
+odf_clean <- odf %>%
+  select(
+    country,
+    year,
+    iso_code,
+    co2,
+    co2_per_capita,
+    gdp,
+    population,
+    primary_energy_consumption
+  ) %>%
+  filter(year >= 1990) %>%
+  filter(!is.na(iso_code))
+
+colSums(is.na(odf_clean))
+
+nrow(odf_clean)
+
+odf_clean %>%
+  summarize(
+    complete_rows = sum(complete.cases(co2, gdp, population, primary_energy_consumption)),
+    total_rows = n()
+  )
+
+odf_clean %>%
+  summarize(
+    complete_rows = sum(complete.cases(co2, gdp, population, primary_energy_consumption)),
+    total_rows = n()
+  )
+```
+
+A basic graph is shown in the early EDA process. Global $CO_2$ emissions show a strong upward trend from 1990 and onward, reflecting increasing industrial activity and energy demand. Temporary declines are visible around 2008-2009 and 2020, most likely corresponding to global economic disruptions such as the financial crisis of 2008 and 2020 COVID-19 outbreak. Overall, the long-term trend suggests sustained growth in emissions over time.
+
+```{r}
+odf_clean %>%
+  group_by(year) %>%
+  summarize(global_co2 = sum(co2, na.rm = TRUE)) %>%
+  ggplot(aes(x = year, y = global_co2)) +
+  geom_line() +
+  labs(
+    title = "Global CO2 Emissions Over Time",
+    x = "Year",
+    y = "Total CO2"
+  ) +
+  theme_minimal()
+
+
+odf_model <- odf_clean %>%
+  drop_na(co2, gdp, population, primary_energy_consumption)
+```
+
+```{r}
+
+odf_model <- odf_clean %>%
+  drop_na(co2, gdp, population, primary_energy_consumption)
+
+odf_clean %>%
+  summarize(
+    total_rows = n(),
+    total_countries = n_distinct(country),
+    min_year = min(year),
+    max_year = max(year)
+  )
+
+odf_model %>%
+  summarize(
+    total_rows = n(),
+    total_countries = n_distinct(country),
+    min_year = min(year),
+    max_year = max(year)
+  )
+
+```
+
+# Exploratory Data Analysis
+
+To better understand the structure of the dataset and inform modeling choices, global trends, country-level variation, and relationship between economic activity and emissions were examined.
+
+## Global Trends over Time
+
+Aggregate $CO_2$ emissions shows a clear upward trajectory from 1990 onward with rapid growth beginning in the early 2000s. While there is a slight decline around 2020, the overall pattern remains upward. At a global level, emissions have continued to scale with industrial and economic expansion over time.
+
+```{r}
+#| fig-cap: "Global $CO_2$ emissions increased strongly from 1990 onward, with temporary declines around 2008–2009 and 2020."
+
+theme_proj <- function() {
+  theme_minimal() +
+    theme(
+      plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+      plot.subtitle = element_text(size = 11, hjust = 0.5),
+      axis.title = element_text(face = "bold"),
+      axis.text = element_text(size = 10),
+      legend.position = "bottom",
+      legend.title = element_text(face = "bold"),
+      panel.grid.minor = element_blank()
+    )
+}
+
+odf_clean %>%
+  group_by(year) %>%
+  summarize(global_co2 = sum(co2, na.rm = TRUE)) %>%
+  ggplot(aes(x = year, y = global_co2)) +
+  geom_line(color = "salmon2", linewidth = 1.2) +
+  labs(
+    title = "Global CO2 Emissions Over Time",
+    subtitle = "Annual total emissions in the cleaned dataset",
+    x = "Year",
+    y = "Total CO2 Emissions (million tonnes)"
+  ) +
+  theme_proj()
+```
+
+## GDP and $CO_2$ Relationship
+
+The scatterplot of GDP vs $CO_2$ emissions shows a strong positive association, though the relationship is not linear. At lower GDP levels, emissions increase gradually while higher GDP values are associated with a wider spread of emissions outcomes. This dispersion in the scatterplot suggests heterogeneity across countries, with some high-GDP countries maintaining lower emissions than others, possibly because of differences in energy efficiency or policy.
+
+```{r}
+#| fig-cap: "GDP and $CO_2$ emissions were positively associated, although the spread of emissions widened substantially at higher GDP levels."
+
+odf_model %>%
+  ggplot(aes(x = gdp, y = co2)) +
+  geom_point(color = "orchid1", alpha = 0.5, size = 2) +
+  labs(
+    title = "GDP vs CO2 Emissions",
+    subtitle = "Complete-case observations from 1990 onward",
+    x = "GDP",
+    y = "CO2 Emissions (tonnes)"
+  ) +
+  theme_proj()
+```
+
+## Country Level Trends
+
+Focusing on the top 10 emitting countries, China shows the most dramatic increase, with noticeable peak after 2000 and continues to become a dominant contributor. India also shows steady growth, though at a lower magntitude. The United States and Germany appear more stable or slightly declining over time, possibly due to changes in energy use or regulation.
+
+```{r}
+#| fig-cap: "Among the top-emitting countries, China showed the steepest increase after 2000, while other major emitters followed more gradual or stable trends." 
+
+top_countries <- odf_clean %>%
+  group_by(country) %>%
+  summarize(total_co2 = sum(co2, na.rm = TRUE)) %>%
+  arrange(desc(total_co2)) %>%
+  slice(1:10) %>%
+  pull(country)
+
+odf_clean %>%
+  filter(country %in% top_countries) %>%
+  ggplot(aes(x = year, y = co2, color = country)) +
+  geom_line(linewidth = 1) +
+  labs(
+    title = "CO2 Emissions for Top 10 Emitting Countries",
+    subtitle = "Country-level trends since 1990",
+    x = "Year",
+    y = "CO2 Emissions (tonnes)",
+    color = "Country"
+  ) +
+  theme_proj()
+```
+
+## Total Emissions by Country
+
+When emissions are aggregated across all years, China and the United States account for the largest shares by a substantial margin. The countries following the two contribute significantly less in comparison. These patterns reinforce the importance of country scale in the analysis and suggests that national differences may remain important even aftaer accounting for broad macro-level predictors.
+
+```{r}
+#| fig-cap: "China and the United States accounted for the largest total $CO_2$ emissions by a substantial margin over the study period."
+
+odf_clean %>%
+  group_by(country) %>%
+  summarize(total_co2 = sum(co2, na.rm = TRUE)) %>%
+  arrange(desc(total_co2)) %>%
+  slice(1:10) %>%
+  ggplot(aes(x = reorder(country, total_co2), y = total_co2)) +
+  geom_col(fill = "skyblue2") +
+  coord_flip() +
+  labs(
+    title = "Top 10 Countries by Total CO2 Emissions",
+    subtitle = "Summed across available years after filtering",
+    x = "Country",
+    y = "Total CO2 Emissions (tonnes)"
+  ) +
+  theme_proj()
+```
+
+## Regional Emissions Trends
+
+Regional emissions trends provide additional context for the country-level analysis by showing how broader parts of the world contributed differently to overall $CO_2$ emissions over time. The regional plot suggests Asia experienced the strongest growth across the study period compared to other continents.
+
+```{r}
+#| fig-cap: "Regional $CO_2$ emissions trends were uneven, with Asia showing the strongest growth over time relative to other regions."
+
+region_df <- odf %>%
+  select(country, year, co2) %>%
+  filter(country %in% c(
+    "Africa (GCP)",
+    "Asia (GCP)",
+    "Europe (GCP)",
+    "North America (GCP)",
+    "South America (GCP)"
+  ))
+
+ggplot(region_df, aes(x = year, y = co2, color = country)) +
+  geom_line(linewidth = 1) +
+  labs(
+    title = "Regional CO2 Emissions Over Time",
+    subtitle = "Aggregate regional trends from the OWID dataset",
+    x = "Year",
+    y = "CO2 Emissions (tonnes)",
+    color = "Region"
+  ) +
+  theme_minimal()
+
+```
+
+# Unsupervised Learning
+
+## Principal Components Analysis
+
+As an extension of the exploratory data analysis, a principal analysis component was implemented to summarize the multivariate structure. PCA was appropriate because the variables of interest $CO_2$ emissions, $CO_2$ emissions per capita, GDP, population, and primary energy consumption were measured on different scales and were also strongly related to one another. To reduce the influence of right-skewness and make the components easier to interpret, the variables were log-transformed and then standardized before fitting PCA.
+
+The PCA results showed that most of the variation in the selected variables could be summarized by only two components. The first principal component (PC1) explained 76.2% of the total variance, while the second principal component (PC2) explained 21.8%. Together, the first two components accounted for approximately 98.0% of the total variation. The loadings indicated that $CO_2$, GDP, and primary energy consumption contributed strongly and positively to PC1, suggesting that this component reflects an overall scale dimension. Population also loaded positively on PC1 but less strongly. PC2 was driven mainly by a contrast between population and $CO_2$ emissions per capita. $CO_2$ emissions per capita had a large positive loading on PC2 while population had a large negative loading. This suggests that the second component distinguishes observations with relatively high per-capita emissions from those with larger population size.
+
+To assess country-level structure more clearly, PCA scores aggregated at the country level were examined carefully to highlight the top-emitting countries. The PCA scores plot did not reveal sharply separated clusters but instead suggested that countries vary along continuous dimensions in the reduced PCA space.
+
+Overall, these results show that the main variables in the analysis are organized primarily along two interpretable axes, one related to national scale and the other related to the contrast between population size and per-capita emissions. This finding supports the broader conclusion that global emission patterns are driven both by country size and by how emissions are distributed relative to the population base.
+
+```{r}
+pca_data <- odf_model %>%
+  select(co2, co2_per_capita, gdp, population, primary_energy_consumption) %>%
+  mutate(
+    co2 = log1p(co2),
+    co2_per_capita = log1p(co2_per_capita),
+    gdp = log1p(gdp),
+    population = log1p(population),
+    primary_energy_consumption = log1p(primary_energy_consumption)
+  )
+
+pca_fit <- prcomp(pca_data, center = TRUE, scale. = TRUE)
+summary(pca_fit)
+pca_fit$rotation
+```
+
+```{r}
+#| fig-cap: "Country-level PCA scores did not reveal sharply separated clusters, but instead showed continuous variation across the reduced PCA space."
+
+pca_country <- odf_model %>%
+  group_by(country) %>%
+  summarize(
+    co2 = mean(co2, na.rm = TRUE),
+    co2_per_capita = mean(co2_per_capita, na.rm = TRUE),
+    gdp = mean(gdp, na.rm = TRUE),
+    population = mean(population, na.rm = TRUE),
+    primary_energy_consumption = mean(primary_energy_consumption, na.rm = TRUE)
+  ) %>%
+  mutate(
+    co2 = log1p(co2),
+    co2_per_capita = log1p(co2_per_capita),
+    gdp = log1p(gdp),
+    population = log1p(population),
+    primary_energy_consumption = log1p(primary_energy_consumption)
+  )
+
+pca_fit_country <- prcomp(
+  pca_country %>% select(-country),
+  center = TRUE,
+  scale. = TRUE
+)
+
+summary(pca_fit_country)
+pca_fit_country$rotation
+
+pca_scores_country <- as_tibble(pca_fit_country$x) %>%
+  bind_cols(pca_country %>% select(country))
+
+top10_country_names <- odf_clean %>%
+  group_by(country) %>%
+  summarize(total_co2 = sum(co2, na.rm = TRUE), .groups = "drop") %>%
+  arrange(desc(total_co2)) %>%
+  slice(1:10) %>%
+  pull(country)
+
+pca_scores_country_plot <- pca_scores_country %>%
+  mutate(
+    country_group = if_else(country %in% top10_country_names, country, "Other"),
+    country_group = factor(
+      country_group,
+      levels = c(
+        "Canada", "China", "Germany", "India", "Iran",
+        "Japan", "Russia", "South Korea", "United Kingdom",
+        "United States", "Other"
+      )
+    )
+  )
+
+ggplot(pca_scores_country_plot, aes(x = PC1, y = PC2, color = country_group)) +
+  geom_point(alpha = 0.7, size = 2) + scale_color_manual(
+    values = c(
+      "Other" = "grey85",
+      "Canada" = "turquoise2",
+      "China" = "red",
+      "Germany" = "seagreen2",
+      "India" = "goldenrod1",
+      "Iran" = "maroon2",
+      "Japan" = "slateblue",
+      "Russia" = "indianred2",
+      "South Korea" = "royalblue2",
+      "United Kingdom" = "midnightblue",
+      "United States" = "magenta2"
+    )
+  ) +
+  theme_minimal() +
+  labs(
+    title = "PCA Scores Plot by Country",
+    x = "PC1",
+    y = "PC2",
+    color = "Country"
+  )
+```
+
+```{r}
+#| fig-cap: "The PCA loadings indicate that $CO_2$, GDP, and primary energy consumption contributed strongly to the first principal component, while the second component mainly contrasted population size and $CO_2$ emissions per capita."
+
+loadings_df <- as_tibble(pca_fit$rotation, rownames = "variable")
+
+ggplot(loadings_df, aes(x = PC1, y = PC2, label = variable)) +
+  geom_point(size = 3, color = "salmon") +
+  geom_text(size = 4, hjust = 0.5, nudge_y = 0.04) +
+  theme_minimal() +
+  coord_cartesian(xlim = c(0.28, 0.55), ylim = c(-0.85, 0.7), clip = "off") +
+  labs(
+    title = "PCA Variable Loadings",
+    x = "PC1",
+    y = "PC2"
+  ) +
+  theme(
+    plot.margin = margin(10, 30, 10, 20)
+  )
+```
+
+# Predictive Modeling
+
+## Time-Aware Data Splitting
+
+A time-based splitting was used since the dataset is organized by year. This ensured that the models were trained on earlier years and evaluated on later years. Using a random split would ignore the time-series structure of the data and could make predictive performance look better than it actually is. The final training set included observations from 1990 to 2017, while the test set covered 2018 to 2022. Although this split is not perfectly balanced, that is not a weakness in itself. The more important goal here was preserving time order and avoiding leakage of later information into the training set.
+
+```{r}
+odf_model <- odf_clean %>%
+  drop_na(co2, gdp, population, primary_energy_consumption) %>%
+  arrange(year, country)
+
+years_vec <- sort(unique(odf_model$year))
+
+time_slices <- caret::createTimeSlices(
+  1:length(years_vec),
+  initialWindow = 20,
+  horizon = 5,
+  fixedWindow = FALSE
+)
+```
+
+```{r}
+last_train_idx <- time_slices$train[[length(time_slices$train)]]
+last_test_idx  <- time_slices$test[[length(time_slices$test)]]
+
+train_years <- years_vec[last_train_idx]
+test_years  <- years_vec[last_test_idx]
+
+train_data <- odf_model %>%
+  filter(year %in% train_years)
+
+test_data <- odf_model %>%
+  filter(year %in% test_years)
+
+train_data %>%
+  summarize(
+    n_rows = n(),
+    min_year = min(year),
+    max_year = max(year)
+  )
+
+test_data %>%
+  summarize(
+    n_rows = n(),
+    min_year = min(year),
+    max_year = max(year)
+  )
+
+log_train <- train_data %>%
+  mutate(
+    log_co2 = log1p(co2),
+    log_gdp = log1p(gdp),
+    log_population = log1p(population),
+    log_energy = log1p(primary_energy_consumption)
+  )
+
+log_test <- test_data %>%
+  mutate(
+    log_co2 = log1p(co2),
+    log_gdp = log1p(gdp),
+    log_population = log1p(population),
+    log_energy = log1p(primary_energy_consumption)
+  )
+```
+
+## Baseline Model
+
+$CO_2$ emissions, GDP, population, and primary energy consumption were transformed because these variables are strongly right-skewed, Modeling them on the log scale reduced the influence of extremely larged observations and made the regression more stable. After this transformation, a baseline mean model for $log(CO_2)$ was fitted which predicted the average training-set value of $log(CO_2)$ for every observation in the test set. This baseline performed poorly with a RMSE of 1.88, a MAE of 1.515, and a negative $R^2$ of -0.0229.
+
+```{r}
+baseline_log_pred <- mean(log_train$log_co2)
+
+baseline_log_rmse <- sqrt(mean((log_test$log_co2 - baseline_log_pred)^2))
+baseline_log_mae  <- mean(abs(log_test$log_co2 - baseline_log_pred))
+baseline_log_r2   <- 1 - sum((log_test$log_co2 - baseline_log_pred)^2) /
+  sum((log_test$log_co2 - mean(log_test$log_co2))^2)
+
+tibble(
+  model = "Baseline Mean (log scale)",
+  RMSE = baseline_log_rmse,
+  MAE = baseline_log_mae,
+  R2 = baseline_log_r2
+)
+```
+
+## Full Linear Regression for Predicting $log(CO_2)$
+
+A full linear regression model was then fitted for predicting $log(CO_2)$ using the predictors. This model performed better than the baseline with a RMSE of 0.338, a MAE of 0.243, and a $R^2$ of 0.967. These results suggest that the transformed predictors contain substantial predictive informative for $CO_2$ emissions. However, the correlation matrix showed that the predictors still overlapped, especially for log-transformed GDP and log-transformed primary energy consumption with a correlation of 0.944, indicating that multicollinearity is still an issue.
+
+```{r}
+lm_log_fit <- lm(
+  log_co2 ~ log_gdp + log_population + log_energy,
+  data = log_train
+)
+
+summary(lm_log_fit)
+
+log_preds <- predict(lm_log_fit, newdata = log_test)
+
+log_rmse <- sqrt(mean((log_test$log_co2 - log_preds)^2))
+log_mae  <- mean(abs(log_test$log_co2 - log_preds))
+log_r2   <- 1 - sum((log_test$log_co2 - log_preds)^2) /
+  sum((log_test$log_co2 - mean(log_test$log_co2))^2)
+
+tibble(
+  model = "Full Log-Linear Regression",
+  RMSE = log_rmse,
+  MAE = log_mae,
+  R2 = log_r2
+)
+
+log_train %>%
+  select(log_gdp, log_population, log_energy) %>%
+  cor(use = "complete.obs")
+```
+
+## Reduced Linear Regression for Predicting $log(CO_2)$
+
+To address this, a reduced linear regression model was fitted using only log-transformed population and log-transformed primary energy consumption. The reduced model performed nearly as well as the full model, with a RMSE of 0.345, a MAE of 0.249, and a r-squared of 0.9666. The difference in performance between the two models were very small, suggesting that GDP contributed little unique predictive information once population and primary energy consumption were already included.
+
+```{r}
+lm_log_fit_reduced <- lm(
+  log_co2 ~ log_population + log_energy,
+  data = log_train
+)
+
+summary(lm_log_fit_reduced)
+
+reduced_preds <- predict(lm_log_fit_reduced, newdata = log_test)
+
+reduced_rmse <- sqrt(mean((log_test$log_co2 - reduced_preds)^2))
+reduced_mae  <- mean(abs(log_test$log_co2 - reduced_preds))
+reduced_r2   <- 1 - sum((log_test$log_co2 - reduced_preds)^2) /
+  sum((log_test$log_co2 - mean(log_test$log_co2))^2)
+
+tibble(
+  model = "Reduced Log-Linear Regression",
+  RMSE = reduced_rmse,
+  MAE = reduced_mae,
+  R2 = reduced_r2
+)
+
+```
+
+## Random forest for $log(CO_2)$
+
+To go beyond linear regression, a random forest model was fitted using the same train-test split and the same log-transformed predictors. Random forest was chosen as a more flexible machine learning method because it can capture nonlinear relationships and interactions without assuming a strictly linear form.
+
+The random forest model outperformed all other models. It achieved and RMSE of 0.278, an MAE of 0.192, and an $R^2$ of 0.978 on the log scale. This was an improvement over both the full and reduced linear regression models, suggesting that some nonlinear structure remained in the relationship between $CO_2$ emissions and the selected predictors.
+
+In the predictive modeling stage, the baseline mean model for $log(CO_2)$ performed poorly, with an RMSE of 1.883, an MAE of 1.515, and a negative $R^2$ of -0.023. The full linear regression model for predicting $log(CO_2)$substantially improved on this baseline, with an RMSE of 0.338, an MAE of 0.243, and an $R^2$ of 0.967. A reduced linear regression model excluding GDP performed almost as well, with an RMSE of 0.345, an MAE of 0.249, and an $R^2$ of 0.966. Finally, the random forest model achieved the strongest predictive performance overall, with an RMSE of 0.278, an MAE of 0.192, and an $R^2$ of 0.978. This suggests that a more flexible machine learning approach was able to capture additional structure beyond what was modeled by the linear regressions.
+
+```{r}
+X_train <- log_train %>%
+  select(log_gdp, log_population, log_energy)
+
+y_train <- log_train$log_co2
+
+X_test <- log_test %>%
+  select(log_gdp, log_population, log_energy)
+
+y_test <- log_test$log_co2
+
+set.seed(123)
+
+rf_reg <- ranger::ranger(
+  x = X_train,
+  y = y_train,
+  num.trees = 500,
+  mtry = round(ncol(X_train) / 3),
+  min.node.size = 5,
+  importance = "impurity"
+)
+
+y_preds <- predict(rf_reg, data = X_test)$predictions
+
+tibble::tibble(
+  feature = names(rf_reg$variable.importance),
+  importance = rf_reg$variable.importance
+) %>%
+  dplyr::arrange(desc(importance))
+
+rf_rmse <- sqrt(mean((y_test - y_preds)^2))
+rf_mae  <- mean(abs(y_test - y_preds))
+rf_r2   <- 1 - sum((y_test - y_preds)^2) / sum((y_test - mean(y_test))^2)
+
+rf_results <- tibble::tibble(
+  model = "Random Forest for log(CO2)",
+  RMSE = rf_rmse,
+  R2 = rf_r2,
+  MAE = rf_mae
+)
+
+rf_results
+```
+
+# Prediction Diagnostics
+
+In addition to reporting global performance metrics, observed vs. predicted plots were examined to assess how well the models fit across the full range of the reponse. Both the reduced linear regression model and the random forest tracked the observed response reasonably well with the random forest predictions slightly closer to the reference line. This supports the conclusion that the random forest provided the strongest predictive performance overall.
+
+These diagnosticss plots are useful because summary statistics such as RMSE and $R^2$ do not show whether a model performs equally well across all observations. The comparison plot showed that both models fit the data reasonably well, while making it clear that the random forest had the tighter overall fit.
+
+```{r}
+#| fig-cap: "Random forest achieved the strongest predictive performance overall, while the reduced linear regression remained competitive and more interpretable."
+
+
+results_tbl <- tibble(
+  model = c(
+    "Baseline Mean for log(CO2)",
+    "Full Linear Regression for log(CO2)",
+    "Reduced Linear Regression for log(CO2)",
+    "Random Forest for log(CO2)"
+  ),
+  RMSE = c(
+    baseline_log_rmse,
+    log_rmse,
+    reduced_rmse,
+    rf_rmse
+  ),
+  MAE = c(
+    baseline_log_mae,
+    log_mae,
+    reduced_mae,
+    rf_mae
+  ),
+  R2 = c(
+    baseline_log_r2,
+    log_r2,
+    reduced_r2,
+    rf_r2
+  )
+)
+
+results_tbl
+
+```
+
+```{r}
+obs_pred_rf <- tibble::tibble(
+  observed = y_test,
+  predicted = y_preds
+)
+
+ggplot(obs_pred_rf, aes(x = observed, y = predicted)) +
+  geom_point(alpha = 0.5, size = 1.5, color = "orchid2") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray40") +
+  theme_minimal() +
+  labs(
+    title = "Observed vs Predicted log(1 + CO2): Random Forest",
+    x = "Observed log(1 + CO2)",
+    y = "Predicted log(1 + CO2)"
+  )
+```
+
+```{r}
+#| fig-cap: "Both models tracked observed log($CO_2$) reasonably well, but the random forest predictions stayed slightly closer to the 45-degree reference line."
+
+
+obs_pred_compare <- bind_rows(
+  tibble(
+    observed = y_test,
+    predicted = reduced_preds,
+    model = "Reduced Linear Regression"
+  ),
+  tibble(
+    observed = y_test,
+    predicted = y_preds,
+    model = "Random Forest"
+  )
+)
+
+ggplot(obs_pred_compare, aes(x = observed, y = predicted)) +
+  geom_point(alpha = 0.5, size = 1.2, color = "orchid2") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray40") +
+  facet_wrap(~ model) +
+  theme_minimal() +
+  labs(
+    title = "Observed vs Predicted log(1 + CO2)",
+    x = "Observed log(1 + CO2)",
+    y = "Predicted log(1 + CO2)"
+  )
+```
+
+# Discussion
+
+Overall, the main takeaway is that emissions are strongly related to national scale and energy use. There is a strong long-run increase in global emissions, substantial differences across major emitting countries, and a positive but non-linear relationship between economic activity and emissions. Principal components analysis further suggested that most of the structure in the selected variables can be summarized by two main dimensions, one related to national scale and one related to the contrast between population size and per-capita emissions.
+
+A major methological takeaway is that the structure of the data should directly shape model evaluation. Because the observations were organized by year, a time-aware split was the most appropiate framework for predictive modeling.
+
+The model comparison showed that broad macro-level variables can explain large amount of variation in emissions. The random forest model performed best overall, suggesting that the relationship between $CO_2$ emissions and the selected predictors were not linear.
+
+There are limitations to note. The data are observational so the findings should not be interpreted causally. The analysis was also limited to broad country-level variables and did not include policy, energy-mix, or technological measures that may also shape emissions patterns. Future work could explore more predictor sets and incorporate other machine learning approaches.
+
+# Acknowledgments
+
+I thank Professor Tang for valuable feed back on the design and analysis of this study.
+
+# References
+
+<https://ourworldindata.org/co2-and-greenhouse-gas-emissions>
+
+<https://topepo.github.io/caret/data-splitting.html>
+
+<https://stackoverflow.com/questions/65510284/splitting-data-for-time-series-prediction>
+
+<https://stackoverflow.com/questions/30233144/time-series-splitting-data-using-the-timeslice-method>
+
+<https://rsample.tidymodels.org/reference/initial_split.html>
